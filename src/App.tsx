@@ -21,6 +21,11 @@ export function App() {
   // Master state
   const [filesState, setFilesState] = useState<Record<string, string>>({ ...SAMPLE_PROJECT_FILES });
   const [workspaceName, setWorkspaceName] = useState<string>('sample-project');
+  const [openTabs, setOpenTabs] = useState<string[]>([
+    'src/qwythos/agent_truth.qw',
+    'src/index.ts',
+    'src/services/AuthService.ts'
+  ]);
   const [activeFilePath, setActiveFilePath] = useState<string>('src/qwythos/agent_truth.qw');
   const [selectedModel, setSelectedModel] = useState<string>('qwythos-max-reasoning');
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(true);
@@ -52,7 +57,7 @@ export function App() {
   const [latestPlan, setLatestPlan] = useState<PlanOutput | null>(null);
   const [isRunningPipeline, setIsRunningPipeline] = useState(false);
 
-  // Initial Intelligence Indexing
+  // Initial Intelligence Indexing - single-pass instant initialization
   useEffect(() => {
     const initEngine = async () => {
       const orchestrator = new AgentOrchestrator(
@@ -81,7 +86,19 @@ export function App() {
   };
 
   const handleSelectFile = (path: string) => {
+    if (!openTabs.includes(path)) {
+      setOpenTabs(prev => [...prev, path]);
+    }
     setActiveFilePath(path);
+  };
+
+  const handleCloseTab = (tabPath: string) => {
+    const nextTabs = openTabs.filter(t => t !== tabPath);
+    setOpenTabs(nextTabs);
+
+    if (activeFilePath === tabPath && nextTabs.length > 0) {
+      setActiveFilePath(nextTabs[nextTabs.length - 1]);
+    }
   };
 
   const handleFileChange = async (newContent: string) => {
@@ -98,7 +115,7 @@ export function App() {
         : `export function log(msg: string) {\n  console.log('[LOG]:', msg);\n}\n`;
       setFilesState(prev => ({ ...prev, [name]: initialContent }));
       await truthEngineRef.current.processFile(name, initialContent);
-      setActiveFilePath(name);
+      handleSelectFile(name);
       refreshStats();
     }
   };
@@ -110,13 +127,10 @@ export function App() {
         delete next[path];
         return next;
       });
+      handleCloseTab(path);
       truthEngineRef.current.scanner.removeFile(path);
       truthEngineRef.current.symbolGraph.removeFileSymbols(path);
       truthEngineRef.current.dependencyGraph.removeFileDependencies(path);
-      if (activeFilePath === path) {
-        const remaining = Object.keys(filesState).filter(p => p !== path);
-        if (remaining.length > 0) setActiveFilePath(remaining[0]);
-      }
       refreshStats();
     }
   };
@@ -125,8 +139,10 @@ export function App() {
   const handleOpenFolder = async (newFiles: Record<string, string>, folderName: string) => {
     setWorkspaceName(folderName);
     setFilesState(newFiles);
-    const firstFile = Object.keys(newFiles)[0] || '';
-    if (firstFile) setActiveFilePath(firstFile);
+
+    const firstFewFiles = Object.keys(newFiles).slice(0, 5);
+    setOpenTabs(firstFewFiles);
+    if (firstFewFiles[0]) setActiveFilePath(firstFewFiles[0]);
 
     const newStats = await truthEngineRef.current.rebuildFullIntelligence(newFiles);
     setStats(newStats);
@@ -135,7 +151,7 @@ export function App() {
       orchestratorRef.current.eventStream.logEvent({
         agent: 'architect',
         action: 'opened_local_folder',
-        reason: `Opened local workspace "${folderName}" with ${Object.keys(newFiles).length} files. Project Truth Engine indexed cleanly.`,
+        reason: `Opened local workspace "${folderName}" with ${Object.keys(newFiles).length} source files. Project Truth Engine indexed cleanly.`,
         result: 'success'
       });
     }
@@ -145,6 +161,7 @@ export function App() {
   const handleResetSampleWorkspace = async () => {
     setWorkspaceName('sample-project');
     setFilesState({ ...SAMPLE_PROJECT_FILES });
+    setOpenTabs(['src/qwythos/agent_truth.qw', 'src/index.ts', 'src/services/AuthService.ts']);
     setActiveFilePath('src/qwythos/agent_truth.qw');
     const newStats = await truthEngineRef.current.rebuildFullIntelligence(SAMPLE_PROJECT_FILES);
     setStats(newStats);
@@ -235,17 +252,20 @@ export function App() {
           onResetSampleWorkspace={handleResetSampleWorkspace}
         />
 
-        {/* Center: Monaco Editor & Timeline */}
+        {/* Center: Monaco Code & Live Diff Editor + Timeline */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <CodeEditor
             filePath={activeFilePath}
             content={filesState[activeFilePath] || ''}
+            openTabs={openTabs}
+            onSelectTab={handleSelectFile}
+            onCloseTab={handleCloseTab}
             onChangeContent={handleFileChange}
             onRunInlineEdit={(instruction) => handleRunAutonomousGoal(`Inline Edit: ${instruction}`)}
           />
 
           {/* Real-time Agent Event Timeline Stream */}
-          <div className="h-36 border-t border-slate-800">
+          <div className="h-32 border-t border-slate-800">
             <AgentTimeline events={events} />
           </div>
         </div>

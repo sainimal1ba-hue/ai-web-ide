@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, FolderOpen, FileCode, Plus, Trash2, AlertCircle, ChevronRight, ChevronDown, FolderInput, RotateCcw } from 'lucide-react';
+import { Folder, FolderOpen, FileCode, Plus, Trash2, AlertCircle, ChevronRight, ChevronDown, FolderInput, RotateCcw, Sparkles } from 'lucide-react';
 import type { FileMetadata } from '../../engine/truth-engine/types';
 
 interface FileExplorerProps {
@@ -20,6 +20,21 @@ interface TreeNode {
   fileMeta?: FileMetadata;
 }
 
+// Strict exclusion list to avoid importing build chunks, node_modules, and binaries
+const EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', '.vite', '.next', 'coverage', '.idea', '.vscode', 'dist/assets', 'bin', 'obj']);
+const EXCLUDED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.svg', '.zip', '.tar', '.gz', '.pdf', '.exe', '.dll', '.so', '.dylib', '.map', '.chunk.js', '.chunk.css', '.DS_Store']);
+
+const isSourceFile = (filename: string, fullPath: string): boolean => {
+  if (filename.startsWith('.')) return false;
+  if (fullPath.includes('/dist/') || fullPath.includes('/build/') || fullPath.includes('/node_modules/')) return false;
+
+  const ext = '.' + filename.split('.').pop()?.toLowerCase();
+  if (EXCLUDED_EXTENSIONS.has(ext)) return false;
+  if (filename.includes('.chunk.') || filename.includes('.bundle.')) return false;
+
+  return true;
+};
+
 export const FileExplorer: React.FC<FileExplorerProps> = ({
   files,
   activeFilePath,
@@ -31,16 +46,21 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 }) => {
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
 
-  const toggleFolder = (folderPath: string) => {
+  const toggleFolder = (folderPath: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setCollapsedFolders(prev => ({ ...prev, [folderPath]: !prev[folderPath] }));
   };
 
-  // Build recursive tree from file list
+  // Build tree structure from registered files
   const buildTree = (): TreeNode => {
     const root: TreeNode = { name: 'root', path: '', isFolder: true, children: {} };
 
     files.forEach((file) => {
+      // Filter out unwanted files if any slipped through
       const parts = file.path.split('/');
+      const filename = parts[parts.length - 1];
+      if (!isSourceFile(filename, file.path)) return;
+
       let current = root;
 
       parts.forEach((part, index) => {
@@ -72,7 +92,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     return root;
   };
 
-  // Handle native folder opening using File System Access API
+  // Native folder selection using showDirectoryPicker
   const handleOpenLocalFolder = async () => {
     try {
       if ('showDirectoryPicker' in window) {
@@ -82,28 +102,35 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         const readDirRecursive = async (handle: any, relativePath: string = '') => {
           for await (const entry of handle.values()) {
             const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+            
             if (entry.kind === 'file') {
-              if (!entry.name.startsWith('.') && !entry.name.endsWith('.png') && !entry.name.endsWith('.jpg')) {
+              if (isSourceFile(entry.name, entryPath)) {
                 try {
                   const file = await entry.getFile();
-                  const text = await file.text();
-                  loadedFiles[entryPath] = text;
+                  // Limit max file size to 2MB to prevent browser lockups
+                  if (file.size < 2 * 1024 * 1024) {
+                    const text = await file.text();
+                    loadedFiles[entryPath] = text;
+                  }
                 } catch (e) {
-                  // ignore binary read failures
+                  // ignore binary/read error
                 }
               }
-            } else if (entry.kind === 'directory' && entry.name !== 'node_modules' && entry.name !== '.git') {
+            } else if (entry.kind === 'directory' && !EXCLUDED_DIRS.has(entry.name)) {
               await readDirRecursive(entry, entryPath);
             }
           }
         };
 
         await readDirRecursive(dirHandle);
+
         if (Object.keys(loadedFiles).length > 0) {
           onOpenFolder(loadedFiles, dirHandle.name);
+        } else {
+          alert('No supported source files found in selected directory.');
         }
       } else {
-        alert('File System Access API not supported in this browser. Loading custom folder template instead.');
+        alert('File System Access API not supported in this browser environment.');
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -133,9 +160,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             return (
               <div key={child.path} className="space-y-0.5">
                 <div
-                  onClick={() => toggleFolder(child.path)}
-                  className="flex items-center space-x-1.5 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800/60 rounded cursor-pointer font-medium select-none"
-                  style={{ paddingLeft: `${depth * 12 + 8}px` }}
+                  onClick={(e) => toggleFolder(child.path, e)}
+                  className="flex items-center space-x-1.5 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800/70 rounded cursor-pointer font-medium select-none transition-colors"
+                  style={{ paddingLeft: `${depth * 10 + 8}px` }}
                 >
                   {isCollapsed ? (
                     <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -148,7 +175,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   ) : (
                     <FolderOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                   )}
-                  <span className="truncate font-mono">{child.name}</span>
+                  <span className="truncate font-mono text-[11px]">{child.name}</span>
                 </div>
 
                 {!isCollapsed && renderTree(child, depth + 1)}
@@ -159,33 +186,36 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           // File Node
           const isActive = child.path === activeFilePath;
           const fileMeta = child.fileMeta;
+          const isQwythos = child.name.endsWith('.qw') || child.name.endsWith('.qwythos');
 
           return (
             <div
               key={child.path}
               onClick={() => onSelectFile(child.path)}
-              className={`group flex items-center justify-between px-2 py-1.5 rounded text-xs cursor-pointer transition-colors ${
+              className={`group flex items-center justify-between px-2 py-1 rounded text-xs cursor-pointer transition-all ${
                 isActive
-                  ? 'bg-indigo-600/20 text-indigo-300 font-medium border border-indigo-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100'
+                  ? 'bg-indigo-600/25 text-indigo-200 font-semibold border-l-2 border-indigo-400 shadow-sm'
+                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-slate-100'
               }`}
-              style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+              style={{ paddingLeft: `${(depth + 1) * 10 + 8}px` }}
             >
               <div className="flex items-center space-x-2 truncate">
-                <FileCode className={`w-3.5 h-3.5 shrink-0 ${
-                  child.name.endsWith('.qw') ? 'text-purple-400' : isActive ? 'text-indigo-400' : 'text-slate-400'
-                }`} />
-                <span className="truncate font-mono">{child.name}</span>
+                {isQwythos ? (
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0 animate-pulse" />
+                ) : (
+                  <FileCode className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
+                )}
+                <span className="truncate font-mono text-[11px]">{child.name}</span>
               </div>
 
               <div className="flex items-center space-x-1 shrink-0">
                 {fileMeta?.isStale ? (
-                  <span title="Stale Hash: External modification detected" className="flex items-center">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  <span title="Stale Hash: External edit detected" className="flex items-center">
+                    <AlertCircle className="w-3 h-3 text-amber-400 animate-pulse" />
                   </span>
                 ) : (
-                  <span title={`Hash: ${fileMeta?.hash.slice(0, 6)}`} className="text-[10px] text-slate-500 font-mono">
-                    {fileMeta?.hash.slice(0, 6)}
+                  <span title={`SHA-256: ${fileMeta?.hash.slice(0, 8)}`} className="text-[10px] text-slate-600 font-mono group-hover:text-slate-400">
+                    {fileMeta?.hash.slice(0, 4)}
                   </span>
                 )}
 
@@ -208,20 +238,14 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   return (
-    <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full select-none">
+    <div className="w-64 bg-slate-950 border-r border-slate-800/80 flex flex-col h-full select-none font-sans">
       {/* Explorer Header */}
-      <div className="h-9 px-3 border-b border-slate-800 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-          EXPLORER
+      <div className="h-10 px-3 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/60">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+          <Folder className="w-3.5 h-3.5 text-indigo-400" />
+          <span>PROJECT FILES</span>
         </span>
         <div className="flex items-center space-x-1">
-          <button
-            onClick={handleOpenLocalFolder}
-            title="Open Local Folder"
-            className="p-1 rounded hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 transition-colors"
-          >
-            <FolderInput className="w-3.5 h-3.5" />
-          </button>
           <button
             onClick={onCreateFile}
             title="New File"
@@ -232,22 +256,22 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       </div>
 
-      {/* Action Bar for Folder Open */}
-      <div className="p-2 border-b border-slate-800/80 bg-slate-950/60 flex space-x-1">
+      {/* Primary Folder Open & Reset Toolbar */}
+      <div className="p-2 border-b border-slate-800/80 bg-slate-900/40 flex space-x-1.5">
         <button
           onClick={handleOpenLocalFolder}
-          className="flex-1 flex items-center justify-center space-x-1 py-1 px-2 rounded bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-medium transition-colors"
+          className="flex-1 flex items-center justify-center space-x-1.5 py-1.5 px-2.5 rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-[11px] font-semibold transition-all shadow-md shadow-indigo-600/20"
         >
-          <FolderInput className="w-3 h-3" />
+          <FolderInput className="w-3.5 h-3.5" />
           <span>Open Folder</span>
         </button>
 
         <button
           onClick={onResetSampleWorkspace}
           title="Reset to Sample Workspace"
-          className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+          className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors border border-slate-700"
         >
-          <RotateCcw className="w-3 h-3" />
+          <RotateCcw className="w-3.5 h-3.5" />
         </button>
       </div>
 
