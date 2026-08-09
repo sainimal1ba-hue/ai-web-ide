@@ -3,6 +3,7 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import { FileCode, Sparkles, Check, X, ShieldCheck, Columns, Code2, FolderInput, Plus, Layers, Cpu, Terminal as TerminalIcon } from 'lucide-react';
 import { ASTParser } from '../../engine/truth-engine/ASTParser';
 import { HashVerifier } from '../../engine/truth-engine/HashVerifier';
+import { computeLineDiffStats } from '../../utils/diffStats';
 
 interface CodeEditorProps {
   filePath: string;
@@ -14,6 +15,7 @@ interface CodeEditorProps {
   onRunInlineEdit: (instruction: string) => void;
   onOpenFolder?: () => void;
   onCreateFile?: () => void;
+  originalFiles?: Record<string, string>;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -25,7 +27,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onChangeContent,
   onRunInlineEdit,
   onOpenFolder,
-  onCreateFile
+  onCreateFile,
+  originalFiles = {}
 }) => {
   const [showCmdKModal, setShowCmdKModal] = useState(false);
   const [cmdKPrompt, setCmdKPrompt] = useState('');
@@ -34,6 +37,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const language = filePath ? ASTParser.detectLanguage(filePath) : 'typescript';
   const currentHash = content ? HashVerifier.computeHashSync(content) : '';
+  const originalCode = originalFiles[filePath] || '';
+  const diffStats = computeLineDiffStats(originalCode, content);
 
   const handleTriggerCmdK = () => {
     if (!cmdKPrompt.trim()) return;
@@ -117,13 +122,16 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-950 relative overflow-hidden font-sans">
-      {/* VS Code / Cursor Style Tab Bar */}
+      {/* VS Code / Cursor / Antigravity Style Tab Bar */}
       <div className="h-9 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-2 select-none">
         {/* Tab List */}
         <div className="flex items-center space-x-1 overflow-x-auto max-w-[70%]">
           {openTabs.map((tabPath) => {
             const isActive = tabPath === filePath;
             const tabName = tabPath.split('/').pop() || tabPath;
+            const tabStats = computeLineDiffStats(originalFiles[tabPath] || '', tabPath === filePath ? content : '');
+            const hasDiff = tabStats.additions > 0 || tabStats.deletions > 0;
+
             return (
               <div
                 key={tabPath}
@@ -136,6 +144,14 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               >
                 <FileCode className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
                 <span className="truncate max-w-[120px]">{tabName}</span>
+
+                {/* Tab Diff Stat Pill */}
+                {hasDiff && (
+                  <span className="flex items-center space-x-1 text-[9.5px] font-mono shrink-0 bg-slate-900 px-1 py-0.5 rounded border border-slate-800">
+                    <span className="text-emerald-400 font-bold">+{tabStats.additions}</span>
+                    <span className="text-rose-400 font-bold">-{tabStats.deletions}</span>
+                  </span>
+                )}
 
                 <button
                   onClick={(e) => {
@@ -153,6 +169,15 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Action Toolbar */}
         <div className="flex items-center space-x-2 text-xs">
+          {/* Active File +171 -22 Line Diff Stat Badge */}
+          {(diffStats.additions > 0 || diffStats.deletions > 0) && (
+            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10.5px] font-mono">
+              <span className="text-slate-400">Diff:</span>
+              <span className="text-emerald-400 font-bold">+{diffStats.additions}</span>
+              <span className="text-rose-400 font-bold">-{diffStats.deletions}</span>
+            </div>
+          )}
+
           {/* Toggle Live Side-by-Side Diff View */}
           <button
             onClick={() => setIsDiffModeView(!isDiffModeView)}
@@ -229,7 +254,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         <div className="bg-indigo-950/95 border-b border-indigo-500/50 px-4 py-2 flex items-center justify-between text-xs text-indigo-200 z-30 shadow-md">
           <div className="flex items-center space-x-2">
             <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
-            <span>AI Proposed Code Changes. Review live side-by-side diff before accepting into Project Truth.</span>
+            <span>AI Proposed Code Changes (+{diffStats.additions} / -{diffStats.deletions} lines). Review live side-by-side diff before accepting into Project Truth.</span>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -257,7 +282,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             height="100%"
             language={language === 'qwythos' ? 'python' : language === 'typescript' ? 'typescript' : 'javascript'}
             theme="vs-dark"
-            original={content}
+            original={originalCode || content}
             modified={proposedDiff || content}
             options={{
               fontSize: 13,

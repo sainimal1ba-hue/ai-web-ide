@@ -21,6 +21,7 @@ import { isCleanSourceFile } from './utils/fileFilter';
 export function App() {
   // Master state - Starts clean without pre-populated dummy files
   const [filesState, setFilesState] = useState<Record<string, string>>({});
+  const [originalFiles, setOriginalFiles] = useState<Record<string, string>>({});
   const filesStateRef = useRef<Record<string, string>>({});
   filesStateRef.current = filesState;
 
@@ -170,6 +171,7 @@ export function App() {
 
     setWorkspaceName(folderName);
     setFilesState(cleanFiles);
+    setOriginalFiles({ ...cleanFiles });
     setModifiedFiles(new Set());
     setAddedFiles(new Set());
 
@@ -232,6 +234,7 @@ export function App() {
   const handleResetSampleWorkspace = async () => {
     setWorkspaceName('sample-project');
     setFilesState({ ...SAMPLE_PROJECT_FILES });
+    setOriginalFiles({ ...SAMPLE_PROJECT_FILES });
     setModifiedFiles(new Set());
     setAddedFiles(new Set());
     setOpenTabs(['src/qwythos/agent_truth.qw', 'src/index.ts', 'src/services/AuthService.ts']);
@@ -338,6 +341,8 @@ export function App() {
           onResetSampleWorkspace={handleResetSampleWorkspace}
           modifiedFiles={modifiedFiles}
           addedFiles={addedFiles}
+          originalFiles={originalFiles}
+          currentFiles={filesState}
         />
 
         {/* Center: Full-Height Monaco Code & Live Diff Editor */}
@@ -352,6 +357,7 @@ export function App() {
             onRunInlineEdit={(instruction) => handleRunAutonomousGoal(`Inline Edit: ${instruction}`)}
             onOpenFolder={handleTriggerOpenFolder}
             onCreateFile={handleCreateFile}
+            originalFiles={originalFiles}
           />
         </div>
 

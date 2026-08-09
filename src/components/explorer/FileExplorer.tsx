@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Folder, FolderOpen, FileCode, Plus, Trash2, AlertCircle, ChevronRight, ChevronDown, FolderInput, RotateCcw, Sparkles, GitBranch } from 'lucide-react';
 import type { FileMetadata } from '../../engine/truth-engine/types';
 import { isCleanSourceFile } from '../../utils/fileFilter';
+import { computeLineDiffStats } from '../../utils/diffStats';
 
 interface FileExplorerProps {
   files: FileMetadata[];
@@ -13,6 +14,8 @@ interface FileExplorerProps {
   onResetSampleWorkspace: () => void;
   modifiedFiles?: Set<string>;
   addedFiles?: Set<string>;
+  originalFiles?: Record<string, string>;
+  currentFiles?: Record<string, string>;
 }
 
 interface TreeNode {
@@ -34,7 +37,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onOpenFolder,
   onResetSampleWorkspace,
   modifiedFiles = new Set(),
-  addedFiles = new Set()
+  addedFiles = new Set(),
+  originalFiles = {},
+  currentFiles = {}
 }) => {
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [viewFilter, setViewFilter] = useState<'all' | 'changed'>('all');
@@ -179,12 +184,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             );
           }
 
-          // File Node with M (Modified) and A (Added) Badges
+          // File Node with M (Modified) / A (Added) Badges and +171 -22 Line Diff Metrics
           const isActive = child.path === activeFilePath;
           const fileMeta = child.fileMeta;
           const isQwythos = child.name.endsWith('.qw') || child.name.endsWith('.qwythos');
           const isModified = modifiedFiles.has(child.path);
           const isAdded = addedFiles.has(child.path);
+
+          const diffStats = computeLineDiffStats(originalFiles[child.path] || '', currentFiles[child.path] || '');
+          const hasDiffStats = diffStats.additions > 0 || diffStats.deletions > 0;
 
           return (
             <div
@@ -210,17 +218,25 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 <span className="truncate font-mono text-[11px]">{child.name}</span>
               </div>
 
-              <div className="flex items-center space-x-1.5 shrink-0">
+              <div className="flex items-center space-x-1.5 shrink-0 font-mono text-[9.5px]">
+                {/* Line Diff Badge (+171 / -22) */}
+                {hasDiffStats && (
+                  <span className="flex items-center space-x-0.5">
+                    <span className="text-emerald-400 font-bold">+{diffStats.additions}</span>
+                    <span className="text-rose-400 font-bold">-{diffStats.deletions}</span>
+                  </span>
+                )}
+
                 {/* Modified 'M' Badge */}
                 {isModified && (
-                  <span title="Modified by Developer or AI" className="px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[9px] font-bold">
+                  <span title="Modified by Developer or AI" className="px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
                     M
                   </span>
                 )}
 
                 {/* Added 'A' Badge */}
                 {isAdded && (
-                  <span title="New File Added" className="px-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[9px] font-bold">
+                  <span title="New File Added" className="px-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
                     A
                   </span>
                 )}
