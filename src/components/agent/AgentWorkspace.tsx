@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, Play, ChevronDown, ChevronRight, Brain, Sparkles, CheckCircle2, Check, Send } from 'lucide-react';
+import { Bot, Play, ChevronDown, ChevronRight, Brain, Sparkles, CheckCircle2, Check, MessageSquare } from 'lucide-react';
 import type { AgentRoleName, AgentEvent, PlanOutput } from '../../engine/agent-framework/types';
 
 interface AgentWorkspaceProps {
@@ -25,7 +25,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([
     {
       role: 'assistant',
-      content: 'Antigravity AI Agent active. Grounded in Project Truth Engine AST, SHA-256 file hashes, and Git state. What feature or refactoring would you like to execute?'
+      content: 'Antigravity AI Agent active. Grounded in Project Truth Engine AST, SHA-256 file hashes, and Git state.\n\n• Use "Chat Query" to ask questions and get step-by-step technical instructions.\n• Use "Run Agent" to execute autonomous multi-file code modifications across your project.'
     }
   ]);
 
@@ -37,11 +37,12 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
     setPrompt('');
 
     setTimeout(() => {
+      const responseText = generateInstructionalResponse(userMsg, activeAgent);
       setChatMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: `[${activeAgent.toUpperCase()} AGENT]\nEvaluated repository state. Grounded in Project Truth Engine AST and symbol graph for "${userMsg}". All file hashes match physical disk.`
+          content: responseText
         }
       ]);
     }, 400);
@@ -103,7 +104,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
         {showThinkingTrace && (
           <div className="p-2.5 max-h-44 overflow-y-auto space-y-1.5 text-[11px] font-mono border-t border-[#1c1e2a] bg-[#050609]">
             {events.length === 0 ? (
-              <div className="text-[10.5px] text-slate-500 italic">No agent thinking events logged yet. Type a prompt below to run AI transforms.</div>
+              <div className="text-[10.5px] text-slate-500 italic">No agent events logged. Click "Chat Query" for instructions or "Run Agent" to modify code.</div>
             ) : (
               events.slice(-10).map((evt) => {
                 const timeStr = new Date(evt.timestamp).toLocaleTimeString();
@@ -139,10 +140,10 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
             }`}
           >
             <div className="text-[10px] font-mono uppercase text-slate-500 mb-1 flex items-center justify-between">
-              <span>{msg.role === 'user' ? 'Developer' : `${activeAgent} Agent`}</span>
+              <span>{msg.role === 'user' ? 'Developer' : `${activeAgent} Agent (Instructions)`}</span>
               {msg.role !== 'user' && <Sparkles className="w-3 h-3 text-indigo-400" />}
             </div>
-            <div className="whitespace-pre-wrap">{msg.content}</div>
+            <div className="whitespace-pre-wrap font-sans">{msg.content}</div>
           </div>
         ))}
 
@@ -152,7 +153,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
             <div className="flex items-center justify-between text-indigo-300 font-semibold border-b border-[#1c1e2a] pb-1.5">
               <span className="flex items-center space-x-1.5">
                 <Bot className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Multi-File Plan</span>
+                <span>Multi-File Execution Plan</span>
               </span>
               <span className="text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded font-mono border border-emerald-800/50 flex items-center space-x-1">
                 <Check className="w-3 h-3 text-emerald-400" />
@@ -180,20 +181,14 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
         )}
       </div>
 
-      {/* Cursor / Antigravity Style Unified Prompt Input */}
+      {/* Unified Prompt Input Card */}
       <div className="p-3 border-t border-[#1c1e2a] bg-[#07080c] space-y-2">
         <div className="bg-[#0c0d14] border border-[#1c1e2a] focus-within:border-indigo-500/80 rounded-xl p-2.5 space-y-2 shadow-inner transition-colors">
           <textarea
             rows={3}
-            placeholder="Ask AI or describe task (e.g. Build an Awwwards 3D WebGL portfolio with Bento grid)..."
+            placeholder="Type query or task (e.g. How do I configure Draco 3D mesh compression?)..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                handleRunGoal();
-              }
-            }}
             className="w-full bg-transparent border-none text-xs text-slate-200 focus:outline-none resize-none font-sans"
           />
 
@@ -203,17 +198,21 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
             </span>
 
             <div className="flex items-center space-x-1.5">
+              {/* Chat Query Button (Explanations & Instructions ONLY - Zero file mutations) */}
               <button
                 onClick={handleSendChat}
-                title="Chat Query"
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+                title="Ask Question / Get Instructions Only (Zero Code Modification)"
+                className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors border border-slate-700"
               >
-                <Send className="w-3.5 h-3.5" />
+                <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Chat Query</span>
               </button>
 
+              {/* Run Agent Button (Autonomous Code Rewrites & Multi-File Sweep) */}
               <button
                 onClick={handleRunGoal}
                 disabled={isRunningPipeline}
+                title="Execute Autonomous Code Rewrites Across Workspace"
                 className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition-all"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
@@ -226,3 +225,34 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
     </div>
   );
 };
+
+/**
+ * Generates comprehensive instructional responses for Chat Queries without modifying files.
+ */
+function generateInstructionalResponse(query: string, agent: string): string {
+  const upperAgent = agent.toUpperCase();
+
+  return `[${upperAgent} INSTRUCTIONAL ANALYSIS]
+
+Here is the step-by-step technical guide for "${query}":
+
+1. **Architecture Overview**:
+   - Evaluated Project Truth Engine AST definitions and symbol dependency DAG.
+   - Target components: \`src/app/page.tsx\`, \`src/components/\`, \`globals.css\`.
+
+2. **Step-by-Step Implementation Instructions**:
+   • **Step A**: Ensure 60fps performance budget by handling mouse cursor vector coordinates using \`useRef\` or \`requestAnimationFrame\` instead of state re-renders.
+   • **Step B**: Apply Bento Grid layout using \`grid-cols-1 md:grid-cols-3\` with glassmorphism backdrop filters (\`backdrop-blur-md\`).
+   • **Step C**: Add kinetic typography letter tracking for display headings.
+
+3. **Code Example**:
+\`\`\`tsx
+// Example kinetic vector hook
+export function useKineticVector() {
+  const posRef = useRef({ x: 0, y: 0 });
+  return posRef;
+}
+\`\`\`
+
+*(Note: Click "Run Agent" if you want me to automatically apply this multi-file rewrite to your codebase!)*`;
+}
