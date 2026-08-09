@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Header } from './components/layout/Header';
+import { ActivityRail } from './components/layout/ActivityRail';
 import { FileExplorer } from './components/explorer/FileExplorer';
 import { CodeEditor } from './components/editor/CodeEditor';
 import { AgentWorkspace } from './components/agent/AgentWorkspace';
@@ -24,6 +25,9 @@ export function App() {
   const [originalFiles, setOriginalFiles] = useState<Record<string, string>>({});
   const filesStateRef = useRef<Record<string, string>>({});
   filesStateRef.current = filesState;
+
+  // View Rail State ('explorer' | 'search' | 'git' | 'ai' | 'settings')
+  const [activeView, setActiveView] = useState<'explorer' | 'search' | 'git' | 'ai' | 'settings'>('explorer');
 
   // Source Control & AI Pending Patch State
   const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
@@ -262,7 +266,7 @@ export function App() {
     }
   };
 
-  // Run Autonomous Agent Pipeline (with target file binding and modified file tracking)
+  // Run Autonomous Agent Pipeline
   const handleRunAutonomousGoal = async (objective: string) => {
     if (!orchestratorRef.current) return;
     setIsRunningPipeline(true);
@@ -337,7 +341,7 @@ export function App() {
   const fileMetadataList: FileMetadata[] = truthEngineRef.current.scanner.getAllFiles();
 
   return (
-    <div className="h-screen w-screen bg-[#070a12] text-slate-100 flex flex-col overflow-hidden select-none font-sans">
+    <div className="h-screen w-screen bg-[#090a0f] text-slate-100 flex flex-col overflow-hidden select-none font-sans">
       {/* Top Header */}
       <Header
         stats={stats}
@@ -353,24 +357,32 @@ export function App() {
         workspaceName={workspaceName}
       />
 
-      {/* Main IDE Body */}
+      {/* Main IDE Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar: File Explorer */}
-        <FileExplorer
-          files={fileMetadataList}
-          activeFilePath={activeFilePath}
-          onSelectFile={handleSelectFile}
-          onCreateFile={handleCreateFile}
-          onDeleteFile={handleDeleteFile}
-          onOpenFolder={handleOpenFolder}
-          onResetSampleWorkspace={handleResetSampleWorkspace}
-          modifiedFiles={modifiedFiles}
-          addedFiles={addedFiles}
-          originalFiles={originalFiles}
-          currentFiles={filesState}
+        {/* Left Activity Rail (48px Icon Bar) */}
+        <ActivityRail
+          activeView={activeView}
+          onSelectView={setActiveView}
         />
 
-        {/* Center: Full-Height Monaco Code & Live Diff Editor */}
+        {/* File Explorer Sidebar */}
+        {activeView === 'explorer' && (
+          <FileExplorer
+            files={fileMetadataList}
+            activeFilePath={activeFilePath}
+            onSelectFile={handleSelectFile}
+            onCreateFile={handleCreateFile}
+            onDeleteFile={handleDeleteFile}
+            onOpenFolder={handleOpenFolder}
+            onResetSampleWorkspace={handleResetSampleWorkspace}
+            modifiedFiles={modifiedFiles}
+            addedFiles={addedFiles}
+            originalFiles={originalFiles}
+            currentFiles={filesState}
+          />
+        )}
+
+        {/* Center Code Editor & Monaco View */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <CodeEditor
             filePath={activeFilePath}
@@ -389,7 +401,7 @@ export function App() {
           />
         </div>
 
-        {/* Right Sidebar: AI Agent Workspace with Live Event Stream */}
+        {/* Right AI Agent Workspace Panel */}
         <AgentWorkspace
           onRunAutonomousGoal={handleRunAutonomousGoal}
           isRunningPipeline={isRunningPipeline}
@@ -400,7 +412,7 @@ export function App() {
         />
       </div>
 
-      {/* Bottom Panel: Interactive Terminal, Git Commit & Push, Problems, Tests, Snapshots */}
+      {/* Bottom Panel: Interactive Terminal, Git Commit & Push */}
       <BottomPanel
         checkpoints={checkpoints}
         onRollbackCheckpoint={handleRollbackCheckpoint}
