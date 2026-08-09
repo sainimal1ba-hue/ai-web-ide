@@ -17,15 +17,11 @@ import type { AICheckpoint } from './engine/git-engine/types';
 import { SAMPLE_PROJECT_FILES } from './data/sampleProject';
 
 export function App() {
-  // Master state
-  const [filesState, setFilesState] = useState<Record<string, string>>({ ...SAMPLE_PROJECT_FILES });
-  const [workspaceName, setWorkspaceName] = useState<string>('sample-project');
-  const [openTabs, setOpenTabs] = useState<string[]>([
-    'src/qwythos/agent_truth.qw',
-    'src/index.ts',
-    'src/services/AuthService.ts'
-  ]);
-  const [activeFilePath, setActiveFilePath] = useState<string>('src/qwythos/agent_truth.qw');
+  // Master state - Starts clean without pre-populated dummy files
+  const [filesState, setFilesState] = useState<Record<string, string>>({});
+  const [workspaceName, setWorkspaceName] = useState<string>('No Folder Opened');
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [activeFilePath, setActiveFilePath] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('qwythos-max-reasoning');
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(true);
   const [activeAgent, setActiveAgent] = useState<AgentRoleName>('planner');
@@ -56,7 +52,7 @@ export function App() {
   const [latestPlan, setLatestPlan] = useState<PlanOutput | null>(null);
   const [isRunningPipeline, setIsRunningPipeline] = useState(false);
 
-  // Initial Intelligence Indexing - single-pass instant initialization
+  // Initial Engine setup
   useEffect(() => {
     const initEngine = async () => {
       const orchestrator = new AgentOrchestrator(
@@ -95,12 +91,13 @@ export function App() {
     const nextTabs = openTabs.filter(t => t !== tabPath);
     setOpenTabs(nextTabs);
 
-    if (activeFilePath === tabPath && nextTabs.length > 0) {
-      setActiveFilePath(nextTabs[nextTabs.length - 1]);
+    if (activeFilePath === tabPath) {
+      setActiveFilePath(nextTabs.length > 0 ? nextTabs[nextTabs.length - 1] : '');
     }
   };
 
   const handleFileChange = async (newContent: string) => {
+    if (!activeFilePath) return;
     setFilesState(prev => ({ ...prev, [activeFilePath]: newContent }));
     await truthEngineRef.current.processFile(activeFilePath, newContent);
     refreshStats();
@@ -156,7 +153,45 @@ export function App() {
     }
   };
 
-  // Reset to Sample Workspace
+  // Trigger Open Local Folder via File System Access API
+  const handleTriggerOpenFolder = async () => {
+    try {
+      if ('showDirectoryPicker' in window) {
+        const dirHandle = await (window as any).showDirectoryPicker();
+        const loadedFiles: Record<string, string> = {};
+
+        const readDirRecursive = async (handle: any, relativePath: string = '') => {
+          for await (const entry of handle.values()) {
+            const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+            if (entry.kind === 'file' && !entry.name.startsWith('.') && !entry.name.endsWith('.png')) {
+              try {
+                const file = await entry.getFile();
+                if (file.size < 2 * 1024 * 1024) {
+                  const text = await file.text();
+                  loadedFiles[entryPath] = text;
+                }
+              } catch (e) {}
+            } else if (entry.kind === 'directory' && entry.name !== 'node_modules' && entry.name !== '.git' && entry.name !== 'dist') {
+              await readDirRecursive(entry, entryPath);
+            }
+          }
+        };
+
+        await readDirRecursive(dirHandle);
+        if (Object.keys(loadedFiles).length > 0) {
+          handleOpenFolder(loadedFiles, dirHandle.name);
+        }
+      } else {
+        alert('File System Access API not supported in this browser environment.');
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error(err);
+      }
+    }
+  };
+
+  // Load Optional Sample Workspace
   const handleResetSampleWorkspace = async () => {
     setWorkspaceName('sample-project');
     setFilesState({ ...SAMPLE_PROJECT_FILES });
@@ -233,16 +268,7 @@ export function App() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar: File Explorer */}
         <FileExplorer
-          files={fileMetadataList.length > 0 ? fileMetadataList : Object.keys(filesState).map(p => ({
-            id: p,
-            path: p,
-            hash: 'syncing',
-            size: filesState[p].length,
-            mtime: Date.now(),
-            language: 'typescript' as any,
-            astVersion: 1,
-            isStale: false
-          }))}
+          files={fileMetadataList}
           activeFilePath={activeFilePath}
           onSelectFile={handleSelectFile}
           onCreateFile={handleCreateFile}
@@ -255,12 +281,14 @@ export function App() {
         <div className="flex-1 flex flex-col overflow-hidden">
           <CodeEditor
             filePath={activeFilePath}
-            content={filesState[activeFilePath] || ''}
+            content={filesState[activeFilePath]}
             openTabs={openTabs}
             onSelectTab={handleSelectFile}
             onCloseTab={handleCloseTab}
             onChangeContent={handleFileChange}
             onRunInlineEdit={(instruction) => handleRunAutonomousGoal(`Inline Edit: ${instruction}`)}
+            onOpenFolder={handleTriggerOpenFolder}
+            onCreateFile={handleCreateFile}
           />
         </div>
 

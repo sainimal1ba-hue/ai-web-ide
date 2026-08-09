@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Editor, { DiffEditor } from '@monaco-editor/react';
-import { FileCode, Sparkles, Check, X, ShieldCheck, Columns, Code2 } from 'lucide-react';
+import { FileCode, Sparkles, Check, X, ShieldCheck, Columns, Code2, FolderInput, Plus, Layers, Cpu, Terminal as TerminalIcon } from 'lucide-react';
 import { ASTParser } from '../../engine/truth-engine/ASTParser';
 import { HashVerifier } from '../../engine/truth-engine/HashVerifier';
 
@@ -12,6 +12,8 @@ interface CodeEditorProps {
   onCloseTab: (path: string) => void;
   onChangeContent: (newContent: string) => void;
   onRunInlineEdit: (instruction: string) => void;
+  onOpenFolder?: () => void;
+  onCreateFile?: () => void;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -21,22 +23,24 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onSelectTab,
   onCloseTab,
   onChangeContent,
-  onRunInlineEdit
+  onRunInlineEdit,
+  onOpenFolder,
+  onCreateFile
 }) => {
   const [showCmdKModal, setShowCmdKModal] = useState(false);
   const [cmdKPrompt, setCmdKPrompt] = useState('');
   const [proposedDiff, setProposedDiff] = useState<string | null>(null);
   const [isDiffModeView, setIsDiffModeView] = useState(false);
 
-  const language = ASTParser.detectLanguage(filePath);
-  const currentHash = HashVerifier.computeHashSync(content);
+  const language = filePath ? ASTParser.detectLanguage(filePath) : 'typescript';
+  const currentHash = content ? HashVerifier.computeHashSync(content) : '';
 
   const handleTriggerCmdK = () => {
     if (!cmdKPrompt.trim()) return;
     onRunInlineEdit(cmdKPrompt);
     const patch = `// AI Transformation: "${cmdKPrompt}"\n${content}`;
     setProposedDiff(patch);
-    setIsDiffModeView(true); // Automatically switch to live diff view!
+    setIsDiffModeView(true);
   };
 
   const handleAcceptDiff = () => {
@@ -53,6 +57,63 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     setProposedDiff(null);
     setIsDiffModeView(false);
   };
+
+  // Render Splash Welcome Screen when no file/workspace is active
+  if (!filePath || content === undefined) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#070a12] text-slate-300 p-8 select-none font-sans">
+        <div className="max-w-md w-full space-y-6 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center mx-auto shadow-2xl shadow-indigo-500/30">
+            <Layers className="w-9 h-9 text-white" />
+          </div>
+
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white">Antigravity AI IDE</h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Project Truth Engine Grounded AI Development Environment
+            </p>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={onOpenFolder}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center space-x-2"
+            >
+              <FolderInput className="w-4 h-4" />
+              <span>Open Local Folder</span>
+            </button>
+
+            <button
+              onClick={onCreateFile}
+              className="w-full py-2 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium border border-slate-800 transition-all flex items-center justify-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create New File</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400 font-mono text-left bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span><strong className="text-slate-200">Cmd+K</strong> AI Inline Edit</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Cpu className="w-3.5 h-3.5 text-purple-400" />
+              <span><strong className="text-slate-200">Qwythos-1</strong> Local Inference</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span><strong className="text-slate-200">SHA-256</strong> Truth Engine</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <TerminalIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span><strong className="text-slate-200">Git</strong> Push & Commit</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-950 relative overflow-hidden font-sans">

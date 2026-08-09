@@ -20,7 +20,6 @@ interface TreeNode {
   fileMeta?: FileMetadata;
 }
 
-// Strict exclusion list to avoid importing build chunks, node_modules, and binaries
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', '.vite', '.next', 'coverage', '.idea', '.vscode', 'dist/assets', 'bin', 'obj']);
 const EXCLUDED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.svg', '.zip', '.tar', '.gz', '.pdf', '.exe', '.dll', '.so', '.dylib', '.map', '.chunk.js', '.chunk.css', '.DS_Store']);
 
@@ -51,12 +50,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     setCollapsedFolders(prev => ({ ...prev, [folderPath]: !prev[folderPath] }));
   };
 
-  // Build tree structure from registered files
   const buildTree = (): TreeNode => {
     const root: TreeNode = { name: 'root', path: '', isFolder: true, children: {} };
 
     files.forEach((file) => {
-      // Filter out unwanted files if any slipped through
       const parts = file.path.split('/');
       const filename = parts[parts.length - 1];
       if (!isSourceFile(filename, file.path)) return;
@@ -92,7 +89,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     return root;
   };
 
-  // Native folder selection using showDirectoryPicker
   const handleOpenLocalFolder = async () => {
     try {
       if ('showDirectoryPicker' in window) {
@@ -107,14 +103,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               if (isSourceFile(entry.name, entryPath)) {
                 try {
                   const file = await entry.getFile();
-                  // Limit max file size to 2MB to prevent browser lockups
                   if (file.size < 2 * 1024 * 1024) {
                     const text = await file.text();
                     loadedFiles[entryPath] = text;
                   }
-                } catch (e) {
-                  // ignore binary/read error
-                }
+                } catch (e) {}
               }
             } else if (entry.kind === 'directory' && !EXCLUDED_DIRS.has(entry.name)) {
               await readDirRecursive(entry, entryPath);
@@ -140,6 +133,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   const treeRoot = buildTree();
+  const hasFiles = files.length > 0;
 
   const renderTree = (node: TreeNode, depth: number = 0) => {
     const sortedKeys = Object.keys(node.children).sort((a, b) => {
@@ -256,7 +250,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       </div>
 
-      {/* Primary Folder Open & Reset Toolbar */}
+      {/* Primary Folder Open Toolbar */}
       <div className="p-2 border-b border-slate-800/80 bg-slate-900/40 flex space-x-1.5">
         <button
           onClick={handleOpenLocalFolder}
@@ -268,16 +262,23 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
         <button
           onClick={onResetSampleWorkspace}
-          title="Reset to Sample Workspace"
+          title="Load Sample Workspace"
           className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors border border-slate-700"
         >
           <RotateCcw className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* File Tree List */}
+      {/* File Tree List or Empty Workspace Indicator */}
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {renderTree(treeRoot)}
+        {hasFiles ? (
+          renderTree(treeRoot)
+        ) : (
+          <div className="p-4 text-center space-y-2 text-slate-500">
+            <p className="text-xs">No files in workspace.</p>
+            <p className="text-[11px] text-slate-600">Click <strong>"Open Folder"</strong> to open a local repository, or click <strong>"+"</strong> to create a new file.</p>
+          </div>
+        )}
       </div>
     </div>
   );
