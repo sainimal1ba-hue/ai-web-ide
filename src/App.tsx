@@ -17,6 +17,7 @@ import type { AgentRoleName, AgentEvent, PlanOutput } from './engine/agent-frame
 import type { AICheckpoint } from './engine/git-engine/types';
 import { SAMPLE_PROJECT_FILES } from './data/sampleProject';
 import { isCleanSourceFile } from './utils/fileFilter';
+import { downloadWorkspaceZip } from './utils/zipExporter';
 
 export function App() {
   // Master state - Starts clean without pre-populated dummy files
@@ -25,9 +26,10 @@ export function App() {
   const filesStateRef = useRef<Record<string, string>>({});
   filesStateRef.current = filesState;
 
-  // Source Control Tracking (Modified & Added Files)
+  // Source Control & AI Pending Patch State
   const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
   const [addedFiles, setAddedFiles] = useState<Set<string>>(new Set());
+  const [pendingAIPatch, setPendingAIPatch] = useState<{ files: string[]; previousState: Record<string, string> } | null>(null);
 
   const [workspaceName, setWorkspaceName] = useState<string>('No Folder Opened');
   const [openTabs, setOpenTabs] = useState<string[]>([]);
@@ -174,6 +176,7 @@ export function App() {
     setOriginalFiles({ ...cleanFiles });
     setModifiedFiles(new Set());
     setAddedFiles(new Set());
+    setPendingAIPatch(null);
 
     const firstFewFiles = Object.keys(cleanFiles).slice(0, 5);
     setOpenTabs(firstFewFiles);
@@ -237,6 +240,7 @@ export function App() {
     setOriginalFiles({ ...SAMPLE_PROJECT_FILES });
     setModifiedFiles(new Set());
     setAddedFiles(new Set());
+    setPendingAIPatch(null);
     setOpenTabs(['src/qwythos/agent_truth.qw', 'src/index.ts', 'src/services/AuthService.ts']);
     setActiveFilePath('src/qwythos/agent_truth.qw');
     const newStats = await truthEngineRef.current.rebuildFullIntelligence(SAMPLE_PROJECT_FILES);
@@ -265,16 +269,23 @@ export function App() {
     if (!orchestratorRef.current) return;
     setIsRunningPipeline(true);
 
+    const snapshotBeforeAI = { ...filesState };
+
     try {
       const result = await orchestratorRef.current.runAutonomousPipeline(objective, activeFilePath);
       setLatestPlan(result.plan);
 
-      // Track modified files
+      // Set pending AI patch review state
       if (result.plan && result.plan.files) {
+        const affected = result.plan.files;
         setModifiedFiles(prev => {
           const next = new Set(prev);
-          result.plan.files.forEach(f => next.add(f));
+          affected.forEach(f => next.add(f));
           return next;
+        });
+        setPendingAIPatch({
+          files: affected,
+          previousState: snapshotBeforeAI
         });
       }
 
@@ -284,6 +295,25 @@ export function App() {
     } finally {
       setIsRunningPipeline(false);
     }
+  };
+
+  // Accept All AI Patches
+  const handleAcceptAllAIPatches = async () => {
+    if (!pendingAIPatch) return;
+    setPendingAIPatch(null);
+    const newStats = await truthEngineRef.current.rebuildFullIntelligence(filesState);
+    setStats(newStats);
+  };
+
+  // Reject All AI Patches (Rollback)
+  const handleRejectAllAIPatches = async () => {
+    if (!pendingAIPatch) return;
+    const previous = pendingAIPatch.previousState;
+    setFilesState(previous);
+    setPendingAIPatch(null);
+    setModifiedFiles(new Set());
+    const newStats = await truthEngineRef.current.rebuildFullIntelligence(previous);
+    setStats(newStats);
   };
 
   // Apply Awwwards Inspiration Style to Active File
@@ -296,6 +326,12 @@ export function App() {
     handleRunAutonomousGoal(`Apply ${siteName} Inspiration: ${prompt}`);
   };
 
+  // Download Workspace ZIP Archive
+  const handleDownloadZip = async () => {
+    const zipName = workspaceName && workspaceName !== 'No Folder Opened' ? `${workspaceName}-updated.zip` : 'portfolio-codebase.zip';
+    await downloadWorkspaceZip(filesState, zipName);
+  };
+
   // Rollback Checkpoint
   const handleRollbackCheckpoint = async (checkpointId: string) => {
     const restored = checkpointEngineRef.current.rollbackCheckpoint(checkpointId);
@@ -303,6 +339,7 @@ export function App() {
       setFilesState(restored);
       setModifiedFiles(new Set());
       setAddedFiles(new Set());
+      setPendingAIPatch(null);
       await truthEngineRef.current.rebuildFullIntelligence(restored);
       refreshStats();
       alert(`Restored workspace snapshot to checkpoint ${checkpointId}.`);
@@ -321,6 +358,7 @@ export function App() {
         onOpenModelManager={() => setIsModelManagerOpen(true)}
         onOpenDashboard={() => setIsDashboardOpen(true)}
         onOpenAwwwardsStudio={() => setIsAwwwardsStudioOpen(true)}
+        onDownloadZip={handleDownloadZip}
         isPrivacyMode={isPrivacyMode}
         onTogglePrivacyMode={() => setIsPrivacyMode(!isPrivacyMode)}
         selectedModel={selectedModel}
@@ -358,6 +396,9 @@ export function App() {
             onOpenFolder={handleTriggerOpenFolder}
             onCreateFile={handleCreateFile}
             originalFiles={originalFiles}
+            pendingAIPatch={pendingAIPatch}
+            onAcceptAllAIPatches={handleAcceptAllAIPatches}
+            onRejectAllAIPatches={handleRejectAllAIPatches}
           />
         </div>
 

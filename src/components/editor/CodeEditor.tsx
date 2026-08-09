@@ -16,6 +16,9 @@ interface CodeEditorProps {
   onOpenFolder?: () => void;
   onCreateFile?: () => void;
   originalFiles?: Record<string, string>;
+  pendingAIPatch?: { files: string[]; previousState: Record<string, string> } | null;
+  onAcceptAllAIPatches?: () => void;
+  onRejectAllAIPatches?: () => void;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -28,7 +31,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onRunInlineEdit,
   onOpenFolder,
   onCreateFile,
-  originalFiles = {}
+  originalFiles = {},
+  pendingAIPatch = null,
+  onAcceptAllAIPatches,
+  onRejectAllAIPatches
 }) => {
   const [showCmdKModal, setShowCmdKModal] = useState(false);
   const [cmdKPrompt, setCmdKPrompt] = useState('');
@@ -37,7 +43,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const language = filePath ? ASTParser.detectLanguage(filePath) : 'typescript';
   const currentHash = content ? HashVerifier.computeHashSync(content) : '';
-  const originalCode = originalFiles[filePath] || '';
+  const originalCode = originalFiles[filePath] || (pendingAIPatch?.previousState ? pendingAIPatch.previousState[filePath] : '') || '';
   const diffStats = computeLineDiffStats(originalCode, content);
 
   const handleTriggerCmdK = () => {
@@ -209,6 +215,36 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       </div>
 
+      {/* Global AI Agent Multi-File "Accept All Changes" / "Reject All" Banner */}
+      {pendingAIPatch && (
+        <div className="bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-950 border-b border-indigo-500/60 px-4 py-2.5 flex items-center justify-between z-40 shadow-xl">
+          <div className="flex items-center space-x-3 text-xs text-indigo-200">
+            <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+            <span>
+              <strong>AI Agent Transformed {pendingAIPatch.files.length} Files</strong> ({pendingAIPatch.files.slice(0, 3).join(', ')}{pendingAIPatch.files.length > 3 ? '...' : ''}). Review code diffs before accepting.
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={onAcceptAllAIPatches}
+              className="flex items-center space-x-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Accept All Changes</span>
+            </button>
+
+            <button
+              onClick={onRejectAllAIPatches}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-950/90 hover:bg-rose-900 text-rose-200 border border-rose-800/80 text-xs font-medium transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Reject All</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Cmd+K Modal Overlay */}
       {showCmdKModal && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 w-[520px] bg-slate-900 border border-indigo-500/50 rounded-xl shadow-2xl p-3.5 space-y-2.5 backdrop-blur-lg">
@@ -277,7 +313,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
       {/* Main Code View or Real-time Side-by-Side Diff View */}
       <div className="flex-1 w-full h-full">
-        {isDiffModeView || proposedDiff ? (
+        {isDiffModeView || proposedDiff || pendingAIPatch ? (
           <DiffEditor
             height="100%"
             language={language === 'qwythos' ? 'python' : language === 'typescript' ? 'typescript' : 'javascript'}

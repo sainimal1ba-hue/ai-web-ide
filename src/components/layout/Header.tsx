@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, Shield, RefreshCw, Activity, Layers, HardDrive, Flame } from 'lucide-react';
+import { Cpu, Shield, RefreshCw, Activity, Layers, HardDrive, Flame, Download } from 'lucide-react';
 import type { TruthEngineStats } from '../../engine/truth-engine/types';
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenModelManager: () => void;
   onOpenDashboard: () => void;
   onOpenAwwwardsStudio: () => void;
+  onDownloadZip: () => void;
   isPrivacyMode: boolean;
   onTogglePrivacyMode: () => void;
   selectedModel: string;
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenModelManager,
   onOpenDashboard,
   onOpenAwwwardsStudio,
+  onDownloadZip,
   isPrivacyMode,
   onTogglePrivacyMode,
   selectedModel,
@@ -66,6 +68,16 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Control Actions */}
       <div className="flex items-center space-x-2">
+        {/* Download Workspace ZIP Button */}
+        <button
+          onClick={onDownloadZip}
+          title="Download Entire Workspace as ZIP Archive"
+          className="flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 transition-all"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>Download ZIP</span>
+        </button>
+
         {/* Awwwards Inspiration Studio Button */}
         <button
           onClick={onOpenAwwwardsStudio}
