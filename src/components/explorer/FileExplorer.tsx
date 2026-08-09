@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, FolderOpen, FileCode, Plus, Trash2, AlertCircle, ChevronRight, ChevronDown, FolderInput, RotateCcw, Sparkles } from 'lucide-react';
+import { Folder, FolderOpen, FileCode, Plus, Trash2, AlertCircle, ChevronRight, ChevronDown, FolderInput, RotateCcw, Sparkles, GitBranch } from 'lucide-react';
 import type { FileMetadata } from '../../engine/truth-engine/types';
 import { isCleanSourceFile } from '../../utils/fileFilter';
 
@@ -11,6 +11,8 @@ interface FileExplorerProps {
   onDeleteFile: (path: string) => void;
   onOpenFolder: (newFiles: Record<string, string>, folderName: string) => void;
   onResetSampleWorkspace: () => void;
+  modifiedFiles?: Set<string>;
+  addedFiles?: Set<string>;
 }
 
 interface TreeNode {
@@ -30,9 +32,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onCreateFile,
   onDeleteFile,
   onOpenFolder,
-  onResetSampleWorkspace
+  onResetSampleWorkspace,
+  modifiedFiles = new Set(),
+  addedFiles = new Set()
 }) => {
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
+  const [viewFilter, setViewFilter] = useState<'all' | 'changed'>('all');
 
   const toggleFolder = (folderPath: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -46,6 +51,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       const parts = file.path.split('/');
       const filename = parts[parts.length - 1];
       if (!isCleanSourceFile(filename, file.path)) return;
+
+      const isModified = modifiedFiles.has(file.path);
+      const isAdded = addedFiles.has(file.path);
+
+      if (viewFilter === 'changed' && !isModified && !isAdded) {
+        return;
+      }
 
       let current = root;
 
@@ -123,6 +135,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
   const treeRoot = buildTree();
   const hasFiles = files.length > 0 && Object.keys(treeRoot.children).length > 0;
+  const changedCount = modifiedFiles.size + addedFiles.size;
 
   const renderTree = (node: TreeNode, depth: number = 0) => {
     const sortedKeys = Object.keys(node.children).sort((a, b) => {
@@ -166,10 +179,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             );
           }
 
-          // File Node
+          // File Node with M (Modified) and A (Added) Badges
           const isActive = child.path === activeFilePath;
           const fileMeta = child.fileMeta;
           const isQwythos = child.name.endsWith('.qw') || child.name.endsWith('.qwythos');
+          const isModified = modifiedFiles.has(child.path);
+          const isAdded = addedFiles.has(child.path);
 
           return (
             <div
@@ -178,6 +193,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               className={`group flex items-center justify-between px-2 py-1 rounded text-xs cursor-pointer transition-all ${
                 isActive
                   ? 'bg-indigo-600/25 text-indigo-200 font-semibold border-l-2 border-indigo-400 shadow-sm'
+                  : isModified
+                  ? 'text-amber-300 bg-amber-950/20 hover:bg-amber-950/40'
+                  : isAdded
+                  ? 'text-emerald-300 bg-emerald-950/20 hover:bg-emerald-950/40'
                   : 'text-slate-300 hover:bg-slate-800/80 hover:text-slate-100'
               }`}
               style={{ paddingLeft: `${(depth + 1) * 10 + 8}px` }}
@@ -186,12 +205,26 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 {isQwythos ? (
                   <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0 animate-pulse" />
                 ) : (
-                  <FileCode className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
+                  <FileCode className={`w-3.5 h-3.5 shrink-0 ${isModified ? 'text-amber-400' : isAdded ? 'text-emerald-400' : isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
                 )}
                 <span className="truncate font-mono text-[11px]">{child.name}</span>
               </div>
 
-              <div className="flex items-center space-x-1 shrink-0">
+              <div className="flex items-center space-x-1.5 shrink-0">
+                {/* Modified 'M' Badge */}
+                {isModified && (
+                  <span title="Modified by Developer or AI" className="px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[9px] font-bold">
+                    M
+                  </span>
+                )}
+
+                {/* Added 'A' Badge */}
+                {isAdded && (
+                  <span title="New File Added" className="px-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[9px] font-bold">
+                    A
+                  </span>
+                )}
+
                 {fileMeta?.isStale ? (
                   <span title="Stale Hash: External edit detected" className="flex items-center">
                     <AlertCircle className="w-3 h-3 text-amber-400 animate-pulse" />
@@ -239,6 +272,31 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       </div>
 
+      {/* Explorer Mode Toggle Bar (All Files vs Changed Files) */}
+      <div className="flex border-b border-slate-800/80 bg-slate-950">
+        <button
+          onClick={() => setViewFilter('all')}
+          className={`flex-1 py-1.5 text-[11px] font-medium text-center border-b-2 transition-all ${
+            viewFilter === 'all'
+              ? 'text-indigo-300 border-indigo-500 font-semibold bg-slate-900/50'
+              : 'text-slate-500 border-transparent hover:text-slate-300'
+          }`}
+        >
+          All Files
+        </button>
+        <button
+          onClick={() => setViewFilter('changed')}
+          className={`flex-1 py-1.5 text-[11px] font-medium text-center border-b-2 transition-all flex items-center justify-center space-x-1 ${
+            viewFilter === 'changed'
+              ? 'text-amber-300 border-amber-500 font-semibold bg-slate-900/50'
+              : 'text-slate-500 border-transparent hover:text-slate-300'
+          }`}
+        >
+          <GitBranch className="w-3 h-3 text-amber-400" />
+          <span>Changed ({changedCount})</span>
+        </button>
+      </div>
+
       {/* Primary Folder Open Toolbar */}
       <div className="p-2 border-b border-slate-800/80 bg-slate-900/40 flex space-x-1.5">
         <button
@@ -264,7 +322,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           renderTree(treeRoot)
         ) : (
           <div className="p-4 text-center space-y-2 text-slate-500">
-            <p className="text-xs">No files in workspace.</p>
+            <p className="text-xs">No files matching view.</p>
             <p className="text-[11px] text-slate-600">Click <strong>"Open Folder"</strong> to open a local repository, or click <strong>"+"</strong> to create a new file.</p>
           </div>
         )}

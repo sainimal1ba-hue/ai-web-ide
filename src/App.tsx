@@ -24,6 +24,10 @@ export function App() {
   const filesStateRef = useRef<Record<string, string>>({});
   filesStateRef.current = filesState;
 
+  // Source Control Tracking (Modified & Added Files)
+  const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
+  const [addedFiles, setAddedFiles] = useState<Set<string>>(new Set());
+
   const [workspaceName, setWorkspaceName] = useState<string>('No Folder Opened');
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string>('');
@@ -68,6 +72,7 @@ export function App() {
         () => filesStateRef.current,
         (path: string, newContent: string) => {
           setFilesState(prev => ({ ...prev, [path]: newContent }));
+          setModifiedFiles(prev => new Set(prev).add(path));
           truthEngineRef.current.processFile(path, newContent);
         }
       );
@@ -109,6 +114,7 @@ export function App() {
   const handleFileChange = async (newContent: string) => {
     if (!activeFilePath) return;
     setFilesState(prev => ({ ...prev, [activeFilePath]: newContent }));
+    setModifiedFiles(prev => new Set(prev).add(activeFilePath));
     await truthEngineRef.current.processFile(activeFilePath, newContent);
     refreshStats();
   };
@@ -120,6 +126,7 @@ export function App() {
         ? `truth LogicEngine {\n  invariant: "PurityVerified"\n}\n\nagent LogicAgent {\n  intent execute() -> Void {}\n}\n`
         : `export function log(msg: string) {\n  console.log('[LOG]:', msg);\n}\n`;
       setFilesState(prev => ({ ...prev, [name]: initialContent }));
+      setAddedFiles(prev => new Set(prev).add(name));
       await truthEngineRef.current.processFile(name, initialContent);
       handleSelectFile(name);
       refreshStats();
@@ -131,6 +138,16 @@ export function App() {
       setFilesState(prev => {
         const next = { ...prev };
         delete next[path];
+        return next;
+      });
+      setModifiedFiles(prev => {
+        const next = new Set(prev);
+        next.delete(path);
+        return next;
+      });
+      setAddedFiles(prev => {
+        const next = new Set(prev);
+        next.delete(path);
         return next;
       });
       handleCloseTab(path);
@@ -153,6 +170,8 @@ export function App() {
 
     setWorkspaceName(folderName);
     setFilesState(cleanFiles);
+    setModifiedFiles(new Set());
+    setAddedFiles(new Set());
 
     const firstFewFiles = Object.keys(cleanFiles).slice(0, 5);
     setOpenTabs(firstFewFiles);
@@ -213,6 +232,8 @@ export function App() {
   const handleResetSampleWorkspace = async () => {
     setWorkspaceName('sample-project');
     setFilesState({ ...SAMPLE_PROJECT_FILES });
+    setModifiedFiles(new Set());
+    setAddedFiles(new Set());
     setOpenTabs(['src/qwythos/agent_truth.qw', 'src/index.ts', 'src/services/AuthService.ts']);
     setActiveFilePath('src/qwythos/agent_truth.qw');
     const newStats = await truthEngineRef.current.rebuildFullIntelligence(SAMPLE_PROJECT_FILES);
@@ -236,7 +257,7 @@ export function App() {
     }
   };
 
-  // Run Autonomous Agent Pipeline (with target file binding)
+  // Run Autonomous Agent Pipeline (with target file binding and modified file tracking)
   const handleRunAutonomousGoal = async (objective: string) => {
     if (!orchestratorRef.current) return;
     setIsRunningPipeline(true);
@@ -244,6 +265,16 @@ export function App() {
     try {
       const result = await orchestratorRef.current.runAutonomousPipeline(objective, activeFilePath);
       setLatestPlan(result.plan);
+
+      // Track modified files
+      if (result.plan && result.plan.files) {
+        setModifiedFiles(prev => {
+          const next = new Set(prev);
+          result.plan.files.forEach(f => next.add(f));
+          return next;
+        });
+      }
+
       refreshStats();
     } catch (e) {
       console.error(e);
@@ -254,8 +285,9 @@ export function App() {
 
   // Apply Awwwards Inspiration Style to Active File
   const handleApplyInspiration = (siteName: string, prompt: string) => {
-    if (!activeFilePath) {
-      const target = 'src/app/page.tsx';
+    let target = activeFilePath;
+    if (!target) {
+      target = 'src/app/page.tsx';
       handleSelectFile(target);
     }
     handleRunAutonomousGoal(`Apply ${siteName} Inspiration: ${prompt}`);
@@ -266,6 +298,8 @@ export function App() {
     const restored = checkpointEngineRef.current.rollbackCheckpoint(checkpointId);
     if (restored) {
       setFilesState(restored);
+      setModifiedFiles(new Set());
+      setAddedFiles(new Set());
       await truthEngineRef.current.rebuildFullIntelligence(restored);
       refreshStats();
       alert(`Restored workspace snapshot to checkpoint ${checkpointId}.`);
@@ -302,6 +336,8 @@ export function App() {
           onDeleteFile={handleDeleteFile}
           onOpenFolder={handleOpenFolder}
           onResetSampleWorkspace={handleResetSampleWorkspace}
+          modifiedFiles={modifiedFiles}
+          addedFiles={addedFiles}
         />
 
         {/* Center: Full-Height Monaco Code & Live Diff Editor */}
