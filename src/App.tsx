@@ -3,7 +3,6 @@ import { Header } from './components/layout/Header';
 import { FileExplorer } from './components/explorer/FileExplorer';
 import { CodeEditor } from './components/editor/CodeEditor';
 import { AgentWorkspace } from './components/agent/AgentWorkspace';
-import { AgentTimeline } from './components/timeline/AgentTimeline';
 import { BottomPanel } from './components/bottom/BottomPanel';
 import { ModelManagerModal } from './components/modals/ModelManagerModal';
 import { IntelligenceDashboardModal } from './components/modals/IntelligenceDashboardModal';
@@ -52,7 +51,7 @@ export function App() {
     gitState: 'clean'
   });
 
-  const [events, setEvents] = useState<AgentEvent[]>([]);
+  const [_events, setEvents] = useState<AgentEvent[]>([]);
   const [checkpoints, setCheckpoints] = useState<AICheckpoint[]>([]);
   const [latestPlan, setLatestPlan] = useState<PlanOutput | null>(null);
   const [isRunningPipeline, setIsRunningPipeline] = useState(false);
@@ -215,7 +214,7 @@ export function App() {
   const fileMetadataList: FileMetadata[] = truthEngineRef.current.scanner.getAllFiles();
 
   return (
-    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden select-none font-sans">
+    <div className="h-screen w-screen bg-[#070a12] text-slate-100 flex flex-col overflow-hidden select-none font-sans">
       {/* Top Header */}
       <Header
         stats={stats}
@@ -252,7 +251,7 @@ export function App() {
           onResetSampleWorkspace={handleResetSampleWorkspace}
         />
 
-        {/* Center: Monaco Code & Live Diff Editor + Timeline */}
+        {/* Center: Full-Height Monaco Code & Live Diff Editor */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <CodeEditor
             filePath={activeFilePath}
@@ -263,14 +262,9 @@ export function App() {
             onChangeContent={handleFileChange}
             onRunInlineEdit={(instruction) => handleRunAutonomousGoal(`Inline Edit: ${instruction}`)}
           />
-
-          {/* Real-time Agent Event Timeline Stream */}
-          <div className="h-32 border-t border-slate-800">
-            <AgentTimeline events={events} />
-          </div>
         </div>
 
-        {/* Right Sidebar: AI Agent Workspace */}
+        {/* Right Sidebar: AI Agent Workspace with Live Reasoning */}
         <AgentWorkspace
           onRunAutonomousGoal={handleRunAutonomousGoal}
           isRunningPipeline={isRunningPipeline}
@@ -280,7 +274,7 @@ export function App() {
         />
       </div>
 
-      {/* Bottom Panel: Terminal, Problems, Tests, Checkpoints */}
+      {/* Bottom Panel: Interactive Terminal, Git Commit & Push, Problems, Tests, Snapshots */}
       <BottomPanel
         checkpoints={checkpoints}
         onRollbackCheckpoint={handleRollbackCheckpoint}

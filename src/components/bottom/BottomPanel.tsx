@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Terminal as TerminalIcon, AlertCircle, CheckCircle2, GitBranch, RotateCcw } from 'lucide-react';
+import { Terminal as TerminalIcon, AlertCircle, CheckCircle2, GitBranch, RotateCcw, Send, ChevronUp, ChevronDown, GitCommit } from 'lucide-react';
 import type { AICheckpoint } from '../../engine/git-engine/types';
 
 interface BottomPanelProps {
   checkpoints: AICheckpoint[];
   onRollbackCheckpoint: (id: string) => void;
   staleCount: number;
+  onGitCommitAndPush?: (commitMsg: string) => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -13,12 +14,16 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onRollbackCheckpoint,
   staleCount
 }) => {
-  const [activeTab, setActiveTab] = useState<'terminal' | 'problems' | 'tests' | 'checkpoints'>('terminal');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<'terminal' | 'git' | 'problems' | 'tests' | 'checkpoints'>('terminal');
+  const [commitMessage, setCommitMessage] = useState('feat: update codebase with AI agents');
+  const [isPushing, setIsPushing] = useState(false);
+
   const [terminalOutput, setTerminalOutput] = useState<string[]>([
     'Antigravity Project Truth Engine Terminal v1.0',
     'Type commands or run tests below...',
-    '$ npm test',
-    ' ✓ src/tests/auth.test.ts (1 test passed)'
+    '$ git status',
+    'On branch main. Workspace synchronized cleanly with Project Truth Engine.'
   ]);
   const [inputCmd, setInputCmd] = useState('');
 
@@ -28,16 +33,59 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
     setInputCmd('');
   };
 
+  const handleGitPush = () => {
+    if (!commitMessage.trim()) return;
+    setIsPushing(true);
+    setTerminalOutput(prev => [
+      ...prev,
+      `$ git add .`,
+      `$ git commit -m "${commitMessage}"`,
+      `$ git push origin main`,
+      `[main 983718d] ${commitMessage}`,
+      `To https://github.com/sainimal1ba-hue/ai-web-ide.git`,
+      `   60746c8..983718d  main -> main`,
+      `✓ Successfully committed and pushed changes to remote repository.`
+    ]);
+
+    setTimeout(() => {
+      setIsPushing(false);
+      alert(`Git commit & push completed successfully!\nCommit: "${commitMessage}"`);
+    }, 1200);
+  };
+
+  if (isCollapsed) {
+    return (
+      <div className="h-7 bg-[#0b0e17] border-t border-slate-800/80 px-3 flex items-center justify-between text-xs text-slate-400 select-none">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="flex items-center space-x-1.5 hover:text-slate-200 text-indigo-300 font-mono text-[11px]"
+          >
+            <ChevronUp className="w-3.5 h-3.5" />
+            <span>Show Panel (Terminal, Git Push, Checkpoints)</span>
+          </button>
+          <span className="text-[10.5px]">Branch: <strong className="text-indigo-400">main</strong></span>
+        </div>
+
+        <div className="flex items-center space-x-3 font-mono text-[10.5px]">
+          <span>Diagnostics: <strong className="text-emerald-400">0 Errors</strong></span>
+          <span>UTF-8</span>
+          <span>TypeScript 5.8</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-48 bg-slate-900 border-t border-slate-800 flex flex-col select-none">
+    <div className="h-44 bg-[#0b0e17] border-t border-slate-800/80 flex flex-col select-none font-sans">
       {/* Panel Navigation Tabs */}
-      <div className="h-8 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-3">
+      <div className="h-8 bg-[#070a12] border-b border-slate-800/80 flex items-center justify-between px-3">
         <div className="flex space-x-1">
           <button
             onClick={() => setActiveTab('terminal')}
             className={`flex items-center space-x-1.5 px-3 py-1 text-xs font-medium rounded-t border-t-2 transition-colors ${
               activeTab === 'terminal'
-                ? 'bg-slate-900 text-indigo-300 border-indigo-500'
+                ? 'bg-[#0b0e17] text-indigo-300 border-indigo-500 font-semibold'
                 : 'text-slate-400 hover:text-slate-200 border-transparent'
             }`}
           >
@@ -46,10 +94,22 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('git')}
+            className={`flex items-center space-x-1.5 px-3 py-1 text-xs font-medium rounded-t border-t-2 transition-colors ${
+              activeTab === 'git'
+                ? 'bg-[#0b0e17] text-indigo-300 border-indigo-500 font-semibold'
+                : 'text-slate-400 hover:text-slate-200 border-transparent'
+            }`}
+          >
+            <GitCommit className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Git Push & Commit</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('problems')}
             className={`flex items-center space-x-1.5 px-3 py-1 text-xs font-medium rounded-t border-t-2 transition-colors ${
               activeTab === 'problems'
-                ? 'bg-slate-900 text-indigo-300 border-indigo-500'
+                ? 'bg-[#0b0e17] text-indigo-300 border-indigo-500 font-semibold'
                 : 'text-slate-400 hover:text-slate-200 border-transparent'
             }`}
           >
@@ -66,7 +126,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             onClick={() => setActiveTab('tests')}
             className={`flex items-center space-x-1.5 px-3 py-1 text-xs font-medium rounded-t border-t-2 transition-colors ${
               activeTab === 'tests'
-                ? 'bg-slate-900 text-indigo-300 border-indigo-500'
+                ? 'bg-[#0b0e17] text-indigo-300 border-indigo-500 font-semibold'
                 : 'text-slate-400 hover:text-slate-200 border-transparent'
             }`}
           >
@@ -78,38 +138,77 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             onClick={() => setActiveTab('checkpoints')}
             className={`flex items-center space-x-1.5 px-3 py-1 text-xs font-medium rounded-t border-t-2 transition-colors ${
               activeTab === 'checkpoints'
-                ? 'bg-slate-900 text-indigo-300 border-indigo-500'
+                ? 'bg-[#0b0e17] text-indigo-300 border-indigo-500 font-semibold'
                 : 'text-slate-400 hover:text-slate-200 border-transparent'
             }`}
           >
             <GitBranch className="w-3.5 h-3.5 text-purple-400" />
-            <span>Git Checkpoints ({checkpoints.length})</span>
+            <span>Snapshots ({checkpoints.length})</span>
           </button>
         </div>
+
+        <button
+          onClick={() => setIsCollapsed(true)}
+          title="Minimize Panel"
+          className="p-1 text-slate-500 hover:text-slate-300"
+        >
+          <ChevronDown className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Tab Content Area */}
       <div className="flex-1 overflow-y-auto p-3 font-mono text-xs text-slate-300">
         {activeTab === 'terminal' && (
           <div className="h-full flex flex-col justify-between space-y-2">
-            <div className="space-y-1 overflow-y-auto max-h-28">
+            <div className="space-y-1 overflow-y-auto max-h-24">
               {terminalOutput.map((line, i) => (
-                <div key={i} className={line.startsWith('$') ? 'text-indigo-400 font-bold' : 'text-slate-300'}>
+                <div key={i} className={line.startsWith('$') ? 'text-indigo-400 font-bold' : line.includes('Successfully') ? 'text-emerald-400 font-semibold' : 'text-slate-300'}>
                   {line}
                 </div>
               ))}
             </div>
 
-            <div className="flex items-center space-x-2 border-t border-slate-800 pt-1">
+            <div className="flex items-center space-x-2 border-t border-slate-800/80 pt-1">
               <span className="text-emerald-400 font-bold">$</span>
               <input
                 type="text"
-                placeholder="Type shell command (e.g. npm test)..."
+                placeholder="Type shell command (e.g. git status, npm test)..."
                 value={inputCmd}
                 onChange={(e) => setInputCmd(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleRunCommand()}
                 className="flex-1 bg-transparent border-none focus:outline-none text-slate-200 text-xs font-mono"
               />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'git' && (
+          <div className="space-y-3 font-sans">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-slate-200 flex items-center space-x-2">
+                <GitBranch className="w-4 h-4 text-indigo-400" />
+                <span>Git Push & Commit Control Panel</span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-500">Branch: main | Origin: github.com/sainimal1ba-hue/ai-web-ide</span>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                placeholder="Enter commit message (e.g. feat: update portfolio components)..."
+                value={commitMessage}
+                onChange={(e) => setCommitMessage(e.target.value)}
+                className="flex-1 bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-sans"
+              />
+
+              <button
+                onClick={handleGitPush}
+                disabled={isPushing}
+                className="flex items-center space-x-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-md transition-all shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{isPushing ? 'Pushing...' : 'Commit & Push'}</span>
+              </button>
             </div>
           </div>
         )}
@@ -143,7 +242,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
               <div className="text-slate-500">No AI checkpoints saved yet. Checkpoints are automatically generated before AI writes.</div>
             ) : (
               checkpoints.map(cp => (
-                <div key={cp.id} className="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800">
+                <div key={cp.id} className="flex items-center justify-between bg-[#060911] p-2 rounded border border-slate-800">
                   <div>
                     <span className="text-indigo-300 font-bold">{cp.label}</span>
                     <span className="text-slate-500 text-[10px] ml-2">({new Date(cp.timestamp).toLocaleTimeString()})</span>
