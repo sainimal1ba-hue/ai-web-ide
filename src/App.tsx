@@ -6,6 +6,7 @@ import { AgentWorkspace } from './components/agent/AgentWorkspace';
 import { BottomPanel } from './components/bottom/BottomPanel';
 import { ModelManagerModal } from './components/modals/ModelManagerModal';
 import { IntelligenceDashboardModal } from './components/modals/IntelligenceDashboardModal';
+import { AwwwardsStudioModal } from './components/modals/AwwwardsStudioModal';
 
 import { TruthEngine } from './engine/truth-engine/TruthEngine';
 import { CheckpointEngine } from './engine/git-engine/CheckpointEngine';
@@ -33,6 +34,7 @@ export function App() {
   // Modals state
   const [isModelManagerOpen, setIsModelManagerOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
+  const [isAwwwardsStudioOpen, setIsAwwwardsStudioOpen] = useState(false);
 
   // Engine Instances
   const truthEngineRef = useRef(new TruthEngine());
@@ -250,6 +252,16 @@ export function App() {
     }
   };
 
+  // Apply Awwwards Inspiration Style to Active File
+  const handleApplyInspiration = (siteName: string, prompt: string) => {
+    if (!activeFilePath) {
+      // If no file is open, create or select a page file
+      const target = 'src/app/page.tsx';
+      handleSelectFile(target);
+    }
+    handleRunAutonomousGoal(`Apply ${siteName} Inspiration: ${prompt}`);
+  };
+
   // Rollback Checkpoint
   const handleRollbackCheckpoint = async (checkpointId: string) => {
     const restored = checkpointEngineRef.current.rollbackCheckpoint(checkpointId);
@@ -272,6 +284,7 @@ export function App() {
         onRunDoctor={handleRunDoctor}
         onOpenModelManager={() => setIsModelManagerOpen(true)}
         onOpenDashboard={() => setIsDashboardOpen(true)}
+        onOpenAwwwardsStudio={() => setIsAwwwardsStudioOpen(true)}
         isPrivacyMode={isPrivacyMode}
         onTogglePrivacyMode={() => setIsPrivacyMode(!isPrivacyMode)}
         selectedModel={selectedModel}
@@ -335,6 +348,12 @@ export function App() {
         onClose={() => setIsDashboardOpen(false)}
         stats={stats}
         onRebuild={handleRebuildIntelligence}
+      />
+
+      <AwwwardsStudioModal
+        isOpen={isAwwwardsStudioOpen}
+        onClose={() => setIsAwwwardsStudioOpen(false)}
+        onApplyInspiration={handleApplyInspiration}
       />
     </div>
   );

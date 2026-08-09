@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, Shield, RefreshCw, Activity, Layers, HardDrive } from 'lucide-react';
+import { Cpu, Shield, RefreshCw, Activity, Layers, HardDrive, Flame } from 'lucide-react';
 import type { TruthEngineStats } from '../../engine/truth-engine/types';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onRunDoctor: () => void;
   onOpenModelManager: () => void;
   onOpenDashboard: () => void;
+  onOpenAwwwardsStudio: () => void;
   isPrivacyMode: boolean;
   onTogglePrivacyMode: () => void;
   selectedModel: string;
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRunDoctor,
   onOpenModelManager,
   onOpenDashboard,
+  onOpenAwwwardsStudio,
   isPrivacyMode,
   onTogglePrivacyMode,
   selectedModel,
@@ -64,11 +66,21 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Control Actions */}
       <div className="flex items-center space-x-2">
+        {/* Awwwards Inspiration Studio Button */}
+        <button
+          onClick={onOpenAwwwardsStudio}
+          title="Awwwards Site of the Year Inspiration Studio (21 Top Sites)"
+          className="flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white shadow-md shadow-amber-500/20 transition-all"
+        >
+          <Flame className="w-3.5 h-3.5" />
+          <span>Awwwards Studio</span>
+        </button>
+
         {/* Privacy Toggle */}
         <button
           onClick={onTogglePrivacyMode}
           title={isPrivacyMode ? "Privacy Mode: Local Models Only (Zero Cloud Upload)" : "Cloud Fallback Allowed"}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.2 rounded-md text-xs font-medium transition-all ${
+          className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
             isPrivacyMode
               ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 hover:bg-emerald-900/80'
               : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
