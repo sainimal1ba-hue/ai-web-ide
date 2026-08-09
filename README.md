@@ -1,32 +1,54 @@
-# React + TypeScript + Vite
+# Antigravity AI IDE — Local-First Multi-Agent AI Development Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **THE AI MUST ALWAYS OPERATE ON CURRENT PROJECT TRUTH.**  
+> The system never blindly trusts an old conversation, stale context window, cached code representation, or previous generated response. Physical file hashes, AST structure, symbol reference graphs, and Git checkpoints are the ultimate source of truth.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🌟 Key Features
 
-## React Compiler
+- **Project Truth Engine**: Direct SHA-256 hash tracking, language-aware AST parsing, symbol graph indexing, and import/export dependency DAG mapping with automated staleness invalidation.
+- **Qwythos Language & AI Integration**: First-class support for `.qw` and `.qwythos` files (`agent`, `truth`, `intent`, `struct`, `fn` constructs) alongside flagship models (`Qwythos: Max Reasoning` & `Qwythos-1`).
+- **Native Folder Opening**: Open any local directory using `showDirectoryPicker()` to recursively crawl, index, and render collapsible tree structures.
+- **Multi-Agent Orchestration**: Autonomous pipeline loop (`PLANNER` → `CHECKPOINT` → `CODER` → `TEST` → `REVIEWER`) with streaming append-only activity timeline logging.
+- **Atomic Checkpoints & Rollbacks**: Pre-AI operation snapshots with 1-click restore capability.
+- **Local Apple Silicon & Privacy Mode**: Supports MLX, Ollama (`http://localhost:11434`), Hugging Face GGUF model registry with memory profiling, and strict local privacy mode.
+- **Modern Desktop Shell**: Monaco Code Editor, inline `Cmd+K` AI diff modal with Accept/Reject, interactive terminal emulator, problems AST diagnostics, test runner, and intelligence dashboard.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+### Installation & Local Run
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+# Clone the repository
+git clone https://github.com/sainimal1ba-hue/ai-web-ide.git
+cd ai-web-ide
+
+# Install dependencies
+npm install
+
+# Start local development server
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Open `http://localhost:5173/` in your browser.
+
+### Verification & Production Build
+
+```bash
+# Type check
+npx tsc --noEmit
+
+# Production build
+npm run build
+```
+
+---
+
+## 🛠 Tech Stack
+
+- **Frontend & UI**: React 19, TypeScript, Tailwind CSS, Lucide Icons, Monaco Editor (`@monaco-editor/react`).
+- **Build System**: Vite, `@tailwindcss/vite`.
+- **Engine Architecture**: TypeScript AST Parser, SHA-256 Hash Verifier, Symbol Graph Indexer, Dependency Graph DAG, Multi-Agent Orchestrator, Controlled Tool Sandbox.
