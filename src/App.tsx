@@ -20,6 +20,9 @@ import { isCleanSourceFile } from './utils/fileFilter';
 export function App() {
   // Master state - Starts clean without pre-populated dummy files
   const [filesState, setFilesState] = useState<Record<string, string>>({});
+  const filesStateRef = useRef<Record<string, string>>({});
+  filesStateRef.current = filesState;
+
   const [workspaceName, setWorkspaceName] = useState<string>('No Folder Opened');
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string>('');
@@ -60,7 +63,11 @@ export function App() {
         truthEngineRef.current,
         checkpointEngineRef.current,
         modelManagerRef.current,
-        filesState
+        () => filesStateRef.current,
+        (path: string, newContent: string) => {
+          setFilesState(prev => ({ ...prev, [path]: newContent }));
+          truthEngineRef.current.processFile(path, newContent);
+        }
       );
       orchestratorRef.current = orchestrator;
 
@@ -68,7 +75,7 @@ export function App() {
         setEvents(prev => [...prev, evt]);
       });
 
-      const newStats = await truthEngineRef.current.rebuildFullIntelligence(filesState);
+      const newStats = await truthEngineRef.current.rebuildFullIntelligence(filesStateRef.current);
       setStats(newStats);
       setCheckpoints(checkpointEngineRef.current.getCheckpoints());
     };
@@ -134,7 +141,6 @@ export function App() {
 
   // Open Local Folder
   const handleOpenFolder = async (newFiles: Record<string, string>, folderName: string) => {
-    // Filter files strictly using isCleanSourceFile
     const cleanFiles: Record<string, string> = {};
     for (const [path, content] of Object.entries(newFiles)) {
       const filename = path.split('/').pop() || path;
@@ -228,15 +234,14 @@ export function App() {
     }
   };
 
-  // Run Autonomous Agent Pipeline
+  // Run Autonomous Agent Pipeline (with target file binding)
   const handleRunAutonomousGoal = async (objective: string) => {
     if (!orchestratorRef.current) return;
     setIsRunningPipeline(true);
 
     try {
-      const result = await orchestratorRef.current.runAutonomousPipeline(objective);
+      const result = await orchestratorRef.current.runAutonomousPipeline(objective, activeFilePath);
       setLatestPlan(result.plan);
-      setFilesState({ ...filesState });
       refreshStats();
     } catch (e) {
       console.error(e);
