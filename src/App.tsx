@@ -53,7 +53,7 @@ export function App() {
     gitState: 'clean'
   });
 
-  const [_events, setEvents] = useState<AgentEvent[]>([]);
+  const [events, setEvents] = useState<AgentEvent[]>([]);
   const [checkpoints, setCheckpoints] = useState<AICheckpoint[]>([]);
   const [latestPlan, setLatestPlan] = useState<PlanOutput | null>(null);
   const [isRunningPipeline, setIsRunningPipeline] = useState(false);
@@ -255,7 +255,6 @@ export function App() {
   // Apply Awwwards Inspiration Style to Active File
   const handleApplyInspiration = (siteName: string, prompt: string) => {
     if (!activeFilePath) {
-      // If no file is open, create or select a page file
       const target = 'src/app/page.tsx';
       handleSelectFile(target);
     }
@@ -320,13 +319,14 @@ export function App() {
           />
         </div>
 
-        {/* Right Sidebar: AI Agent Workspace with Live Reasoning */}
+        {/* Right Sidebar: AI Agent Workspace with Live Event Stream */}
         <AgentWorkspace
           onRunAutonomousGoal={handleRunAutonomousGoal}
           isRunningPipeline={isRunningPipeline}
           latestPlan={latestPlan}
           activeAgent={activeAgent}
           onSelectAgent={setActiveAgent}
+          events={events}
         />
       </div>
 

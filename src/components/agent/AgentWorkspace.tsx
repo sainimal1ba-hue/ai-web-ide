@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Bot, Play, Layers, ChevronDown, ChevronRight, Brain, Sparkles, CheckCircle2 } from 'lucide-react';
-import type { AgentRoleName, PlanOutput } from '../../engine/agent-framework/types';
+import { Bot, Play, Layers, ChevronDown, ChevronRight, Brain, Sparkles, CheckCircle2, Check } from 'lucide-react';
+import type { AgentRoleName, AgentEvent, PlanOutput } from '../../engine/agent-framework/types';
 
 interface AgentWorkspaceProps {
   onRunAutonomousGoal: (objective: string) => void;
@@ -8,13 +8,7 @@ interface AgentWorkspaceProps {
   latestPlan: PlanOutput | null;
   activeAgent: AgentRoleName;
   onSelectAgent: (agent: AgentRoleName) => void;
-}
-
-interface ThinkingStep {
-  time: string;
-  agent: string;
-  thought: string;
-  status: 'thinking' | 'done' | 'tool_call';
+  events: AgentEvent[];
 }
 
 export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
@@ -22,25 +16,11 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
   isRunningPipeline,
   latestPlan,
   activeAgent,
-  onSelectAgent
+  onSelectAgent,
+  events
 }) => {
   const [prompt, setPrompt] = useState('');
   const [showThinkingTrace, setShowThinkingTrace] = useState(true);
-  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([
-    {
-      time: '18:10:02',
-      agent: 'ARCHITECT',
-      thought: 'Inspected Project Truth Engine. Verified SHA-256 hashes across 51 indexed files.',
-      status: 'done'
-    },
-    {
-      time: '18:10:05',
-      agent: 'PLANNER',
-      thought: 'Determined symbol dependencies for page.tsx and layout.tsx. Building execution plan...',
-      status: 'done'
-    }
-  ]);
-
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([
     {
       role: 'assistant',
@@ -55,29 +35,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
     setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setPrompt('');
 
-    // Stream thinking step
-    const now = new Date().toLocaleTimeString();
-    setThinkingSteps(prev => [
-      ...prev,
-      {
-        time: now,
-        agent: activeAgent.toUpperCase(),
-        thought: `Analyzing AST symbol references for query: "${userMsg}"...`,
-        status: 'thinking'
-      }
-    ]);
-
     setTimeout(() => {
-      setThinkingSteps(prev => [
-        ...prev,
-        {
-          time: new Date().toLocaleTimeString(),
-          agent: activeAgent.toUpperCase(),
-          thought: `Validated target hashes. Computed 0 AST regressions. Formulating response...`,
-          status: 'done'
-        }
-      ]);
-
       setChatMessages(prev => [
         ...prev,
         {
@@ -85,29 +43,11 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
           content: `[${activeAgent.toUpperCase()} AGENT]\nEvaluated repository state. Grounded in Project Truth Engine AST and symbol graph for "${userMsg}". All file hashes match physical disk.`
         }
       ]);
-    }, 700);
+    }, 400);
   };
 
   const handleRunGoal = () => {
     if (!prompt.trim()) return;
-    const now = new Date().toLocaleTimeString();
-
-    setThinkingSteps(prev => [
-      ...prev,
-      {
-        time: now,
-        agent: 'PLANNER',
-        thought: `Initiating multi-agent pipeline for objective: "${prompt}"`,
-        status: 'thinking'
-      },
-      {
-        time: now,
-        agent: 'CODER',
-        thought: `Creating pre-modification atomic Git checkpoint...`,
-        status: 'tool_call'
-      }
-    ]);
-
     onRunAutonomousGoal(prompt);
   };
 
@@ -135,7 +75,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
         </select>
       </div>
 
-      {/* Live AI Reasoning & Thinking Trace Accordion */}
+      {/* Live AI Reasoning & Thinking Trace Accordion (Blinked directly from real EventStream events!) */}
       <div className="border-b border-slate-800/80 bg-slate-950/80">
         <button
           onClick={() => setShowThinkingTrace(!showThinkingTrace)}
@@ -143,22 +83,34 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
         >
           <div className="flex items-center space-x-1.5">
             <Brain className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-            <span>LIVE REASONING & THINKING TRACE</span>
+            <span>LIVE REASONING & THINKING TRACE ({events.length})</span>
           </div>
           {showThinkingTrace ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </button>
 
         {showThinkingTrace && (
-          <div className="p-2.5 max-h-36 overflow-y-auto space-y-1.5 text-[11px] font-mono border-t border-slate-800/50 bg-[#060911]">
-            {thinkingSteps.map((step, idx) => (
-              <div key={idx} className="flex items-start space-x-2 text-slate-300 leading-tight">
-                <span className="text-slate-500 text-[10px] shrink-0">{step.time}</span>
-                <span className="px-1 rounded bg-purple-950/80 text-purple-300 text-[9px] uppercase font-bold shrink-0 border border-purple-800/40">
-                  {step.agent}
-                </span>
-                <span className="text-slate-300 text-[10.5px]">{step.thought}</span>
-              </div>
-            ))}
+          <div className="p-2.5 max-h-44 overflow-y-auto space-y-1.5 text-[11px] font-mono border-t border-slate-800/50 bg-[#060911]">
+            {events.length === 0 ? (
+              <div className="text-[10.5px] text-slate-500 italic">No agent thinking events logged yet. Type a prompt or run a pipeline to view reasoning steps.</div>
+            ) : (
+              events.slice(-10).map((evt) => {
+                const timeStr = new Date(evt.timestamp).toLocaleTimeString();
+                return (
+                  <div key={evt.id} className="flex items-start space-x-2 text-slate-300 leading-tight">
+                    <span className="text-slate-500 text-[10px] shrink-0">{timeStr}</span>
+                    <span className={`px-1 rounded text-[9px] uppercase font-bold shrink-0 border ${
+                      evt.agent === 'planner' ? 'bg-purple-950/80 text-purple-300 border-purple-800/40' :
+                      evt.agent === 'coder' ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800/40' :
+                      evt.agent === 'reviewer' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/40' :
+                      'bg-slate-900 text-slate-300 border-slate-700'
+                    }`}>
+                      {evt.agent}
+                    </span>
+                    <span className="text-slate-300 text-[10.5px] truncate">{evt.reason}</span>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </div>
@@ -190,8 +142,9 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
                 <Layers className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Generated Architecture Plan</span>
               </span>
-              <span className="text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded font-mono border border-emerald-800/50">
-                Verified
+              <span className="text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded font-mono border border-emerald-800/50 flex items-center space-x-1">
+                <Check className="w-3 h-3 text-emerald-400" />
+                <span>Verified</span>
               </span>
             </div>
 
