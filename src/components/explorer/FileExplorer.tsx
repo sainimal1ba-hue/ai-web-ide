@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Folder, FolderOpen, FileCode, Plus, Trash2, AlertCircle, ChevronRight, ChevronDown, FolderInput, RotateCcw, Sparkles } from 'lucide-react';
 import type { FileMetadata } from '../../engine/truth-engine/types';
+import { isCleanSourceFile } from '../../utils/fileFilter';
 
 interface FileExplorerProps {
   files: FileMetadata[];
@@ -20,19 +21,7 @@ interface TreeNode {
   fileMeta?: FileMetadata;
 }
 
-const EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', '.vite', '.next', 'coverage', '.idea', '.vscode', 'dist/assets', 'bin', 'obj']);
-const EXCLUDED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.svg', '.zip', '.tar', '.gz', '.pdf', '.exe', '.dll', '.so', '.dylib', '.map', '.chunk.js', '.chunk.css', '.DS_Store']);
-
-const isSourceFile = (filename: string, fullPath: string): boolean => {
-  if (filename.startsWith('.')) return false;
-  if (fullPath.includes('/dist/') || fullPath.includes('/build/') || fullPath.includes('/node_modules/')) return false;
-
-  const ext = '.' + filename.split('.').pop()?.toLowerCase();
-  if (EXCLUDED_EXTENSIONS.has(ext)) return false;
-  if (filename.includes('.chunk.') || filename.includes('.bundle.')) return false;
-
-  return true;
-};
+const IGNORED_DIRECTORIES = new Set(['node_modules', '.git', '.next', '.turbo', 'turbopack', 'dist', 'build', 'out', '.vite', 'coverage', '.idea']);
 
 export const FileExplorer: React.FC<FileExplorerProps> = ({
   files,
@@ -56,7 +45,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     files.forEach((file) => {
       const parts = file.path.split('/');
       const filename = parts[parts.length - 1];
-      if (!isSourceFile(filename, file.path)) return;
+      if (!isCleanSourceFile(filename, file.path)) return;
 
       let current = root;
 
@@ -100,7 +89,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
             
             if (entry.kind === 'file') {
-              if (isSourceFile(entry.name, entryPath)) {
+              if (isCleanSourceFile(entry.name, entryPath)) {
                 try {
                   const file = await entry.getFile();
                   if (file.size < 2 * 1024 * 1024) {
@@ -109,7 +98,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   }
                 } catch (e) {}
               }
-            } else if (entry.kind === 'directory' && !EXCLUDED_DIRS.has(entry.name)) {
+            } else if (entry.kind === 'directory' && !IGNORED_DIRECTORIES.has(entry.name.toLowerCase())) {
               await readDirRecursive(entry, entryPath);
             }
           }
@@ -133,7 +122,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   const treeRoot = buildTree();
-  const hasFiles = files.length > 0;
+  const hasFiles = files.length > 0 && Object.keys(treeRoot.children).length > 0;
 
   const renderTree = (node: TreeNode, depth: number = 0) => {
     const sortedKeys = Object.keys(node.children).sort((a, b) => {

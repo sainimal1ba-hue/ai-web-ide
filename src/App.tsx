@@ -15,6 +15,7 @@ import type { FileMetadata, TruthEngineStats } from './engine/truth-engine/types
 import type { AgentRoleName, AgentEvent, PlanOutput } from './engine/agent-framework/types';
 import type { AICheckpoint } from './engine/git-engine/types';
 import { SAMPLE_PROJECT_FILES } from './data/sampleProject';
+import { isCleanSourceFile } from './utils/fileFilter';
 
 export function App() {
   // Master state - Starts clean without pre-populated dummy files
@@ -133,21 +134,30 @@ export function App() {
 
   // Open Local Folder
   const handleOpenFolder = async (newFiles: Record<string, string>, folderName: string) => {
-    setWorkspaceName(folderName);
-    setFilesState(newFiles);
+    // Filter files strictly using isCleanSourceFile
+    const cleanFiles: Record<string, string> = {};
+    for (const [path, content] of Object.entries(newFiles)) {
+      const filename = path.split('/').pop() || path;
+      if (isCleanSourceFile(filename, path)) {
+        cleanFiles[path] = content;
+      }
+    }
 
-    const firstFewFiles = Object.keys(newFiles).slice(0, 5);
+    setWorkspaceName(folderName);
+    setFilesState(cleanFiles);
+
+    const firstFewFiles = Object.keys(cleanFiles).slice(0, 5);
     setOpenTabs(firstFewFiles);
     if (firstFewFiles[0]) setActiveFilePath(firstFewFiles[0]);
 
-    const newStats = await truthEngineRef.current.rebuildFullIntelligence(newFiles);
+    const newStats = await truthEngineRef.current.rebuildFullIntelligence(cleanFiles);
     setStats(newStats);
 
     if (orchestratorRef.current) {
       orchestratorRef.current.eventStream.logEvent({
         agent: 'architect',
         action: 'opened_local_folder',
-        reason: `Opened local workspace "${folderName}" with ${Object.keys(newFiles).length} source files. Project Truth Engine indexed cleanly.`,
+        reason: `Opened local workspace "${folderName}" with ${Object.keys(cleanFiles).length} source files. Project Truth Engine indexed cleanly.`,
         result: 'success'
       });
     }
@@ -163,7 +173,7 @@ export function App() {
         const readDirRecursive = async (handle: any, relativePath: string = '') => {
           for await (const entry of handle.values()) {
             const entryPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-            if (entry.kind === 'file' && !entry.name.startsWith('.') && !entry.name.endsWith('.png')) {
+            if (entry.kind === 'file' && isCleanSourceFile(entry.name, entryPath)) {
               try {
                 const file = await entry.getFile();
                 if (file.size < 2 * 1024 * 1024) {
@@ -171,7 +181,7 @@ export function App() {
                   loadedFiles[entryPath] = text;
                 }
               } catch (e) {}
-            } else if (entry.kind === 'directory' && entry.name !== 'node_modules' && entry.name !== '.git' && entry.name !== 'dist') {
+            } else if (entry.kind === 'directory' && !entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== 'dist') {
               await readDirRecursive(entry, entryPath);
             }
           }
