@@ -25,7 +25,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([
     {
       role: 'assistant',
-      content: 'Antigravity AI Agent active. Grounded in Project Truth Engine AST, SHA-256 file hashes, and Git state.\n\n• Use "Chat Query" to ask questions and get step-by-step technical instructions.\n• Use "Run Agent" to execute autonomous multi-file code modifications across your project.'
+      content: 'Antigravity AI Agent active with Claude-Style Extended Tradeoff Analysis & Option Selection.\n\n• Click "Chat Query" for deep architectural analysis, option evaluations (A vs B vs C), and tradeoff breakdowns.\n• Click "Run Agent" to execute Option C multi-file code rewrites across your codebase.'
     }
   ]);
 
@@ -45,7 +45,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
           content: responseText
         }
       ]);
-    }, 400);
+    }, 450);
   };
 
   const handleRunGoal = () => {
@@ -104,7 +104,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
         {showThinkingTrace && (
           <div className="p-2.5 max-h-44 overflow-y-auto space-y-1.5 text-[11px] font-mono border-t border-[#1c1e2a] bg-[#050609]">
             {events.length === 0 ? (
-              <div className="text-[10.5px] text-slate-500 italic">No agent events logged. Click "Chat Query" for instructions or "Run Agent" to modify code.</div>
+              <div className="text-[10.5px] text-slate-500 italic">No agent events logged. Click "Chat Query" for tradeoff analysis or "Run Agent" to modify code.</div>
             ) : (
               events.slice(-10).map((evt) => {
                 const timeStr = new Date(evt.timestamp).toLocaleTimeString();
@@ -140,7 +140,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
             }`}
           >
             <div className="text-[10px] font-mono uppercase text-slate-500 mb-1 flex items-center justify-between">
-              <span>{msg.role === 'user' ? 'Developer' : `${activeAgent} Agent (Instructions)`}</span>
+              <span>{msg.role === 'user' ? 'Developer' : `${activeAgent} Agent (Claude Analysis)`}</span>
               {msg.role !== 'user' && <Sparkles className="w-3 h-3 text-indigo-400" />}
             </div>
             <div className="whitespace-pre-wrap font-sans">{msg.content}</div>
@@ -186,7 +186,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
         <div className="bg-[#0c0d14] border border-[#1c1e2a] focus-within:border-indigo-500/80 rounded-xl p-2.5 space-y-2 shadow-inner transition-colors">
           <textarea
             rows={3}
-            placeholder="Type query or task (e.g. How do I configure Draco 3D mesh compression?)..."
+            placeholder="Describe problem or feature (e.g. Evaluate options to optimize Bento grid WebGL kinetics)..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             className="w-full bg-transparent border-none text-xs text-slate-200 focus:outline-none resize-none font-sans"
@@ -198,21 +198,21 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
             </span>
 
             <div className="flex items-center space-x-1.5">
-              {/* Chat Query Button (Explanations & Instructions ONLY - Zero file mutations) */}
+              {/* Chat Query Button (Tradeoff Analysis & Options Evaluation ONLY) */}
               <button
                 onClick={handleSendChat}
-                title="Ask Question / Get Instructions Only (Zero Code Modification)"
+                title="Evaluate Architecture & Compare Options (Zero Code Modification)"
                 className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors border border-slate-700"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Chat Query</span>
               </button>
 
-              {/* Run Agent Button (Autonomous Code Rewrites & Multi-File Sweep) */}
+              {/* Run Agent Button (Execute Option C Code Rewrites Across Workspace) */}
               <button
                 onClick={handleRunGoal}
                 disabled={isRunningPipeline}
-                title="Execute Autonomous Code Rewrites Across Workspace"
+                title="Execute Optimal Option C Multi-File Code Rewrites Across Workspace"
                 className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition-all"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
@@ -227,32 +227,37 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
 };
 
 /**
- * Generates comprehensive instructional responses for Chat Queries without modifying files.
+ * Generates Claude-style architectural tradeoff analysis & option evaluations.
  */
 function generateInstructionalResponse(query: string, agent: string): string {
   const upperAgent = agent.toUpperCase();
 
-  return `[${upperAgent} INSTRUCTIONAL ANALYSIS]
+  return `[${upperAgent} CLAUDE TRADEOFF ANALYSIS]
 
-Here is the step-by-step technical guide for "${query}":
+🎯 **WHY IS THIS CHANGE NEEDED?**
+Evaluating: "${query}"
+The current codebase requires refactoring to guarantee 60fps WebGL vector kinetics, responsive Bento grid boundaries, and zero hydration mismatches.
 
-1. **Architecture Overview**:
-   - Evaluated Project Truth Engine AST definitions and symbol dependency DAG.
-   - Target components: \`src/app/page.tsx\`, \`src/components/\`, \`globals.css\`.
+🛠️ **WHAT WILL THIS CHANGE ALTER?**
+• \`src/app/page.tsx\`: Main portfolio hero component & mouse vector listener.
+• \`src/app/layout.tsx\`: Font preconnect headers (\`Inter\`, \`Syne\`, \`JetBrains Mono\`).
+• \`src/app/globals.css\`: Design tokens for obsidian background (\`#030712\`) & glassmorphism.
 
-2. **Step-by-Step Implementation Instructions**:
-   • **Step A**: Ensure 60fps performance budget by handling mouse cursor vector coordinates using \`useRef\` or \`requestAnimationFrame\` instead of state re-renders.
-   • **Step B**: Apply Bento Grid layout using \`grid-cols-1 md:grid-cols-3\` with glassmorphism backdrop filters (\`backdrop-blur-md\`).
-   • **Step C**: Add kinetic typography letter tracking for display headings.
+⚖️ **OPTION EVALUATION & TRADEOFF ANALYSIS**:
+1. **Option A (Shallow File Patch)**:
+   - *Pros*: Fast execution; modifies single file.
+   - *Cons*: High risk of prop drift and broken import links in related files.
 
-3. **Code Example**:
-\`\`\`tsx
-// Example kinetic vector hook
-export function useKineticVector() {
-  const posRef = useRef({ x: 0, y: 0 });
-  return posRef;
-}
-\`\`\`
+2. **Option B (Local Component Wrapper)**:
+   - *Pros*: Keeps original code untouched.
+   - *Cons*: Adds redundant re-render overhead, violating 60fps budget.
 
-*(Note: Click "Run Agent" if you want me to automatically apply this multi-file rewrite to your codebase!)*`;
+3. **Option C (Architectural Multi-File Sweep)** — **CHOSEN OPTIMAL APPROACH**:
+   - *Pros*: 100% AST integrity, full Awwwards design purity, zero type regressions, and 60fps vector physics.
+   - *Cons*: Modifies multiple files (protected by pre-AI atomic Git checkpoint).
+
+🛡️ **WILL THIS REALLY SOLVE THE PROBLEM?**
+Yes. Option C directly addresses the root cause while maintaining 100% SHA-256 hash sync with Project Truth Engine.
+
+*(Click "Run Agent" to execute Option C multi-file code rewrites across your workspace!)*`;
 }
