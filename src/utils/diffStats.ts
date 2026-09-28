@@ -1,31 +1,34 @@
+import { diffLines } from 'diff';
+
 /**
  * Computes line addition (+) and deletion (-) statistics between two file content strings.
+ *
+ * This uses an actual line diff instead of comparing sets of lines. Set-based comparison
+ * loses duplicate lines and can therefore report incorrect statistics when a line is
+ * repeated or moved.
  */
 export interface DiffStats {
   additions: number;
   deletions: number;
 }
 
-export function computeLineDiffStats(oldContent: string = '', newContent: string = ''): DiffStats {
-  if (!oldContent && !newContent) return { additions: 0, deletions: 0 };
-  if (!oldContent) return { additions: newContent.split('\n').length, deletions: 0 };
-  if (!newContent) return { additions: 0, deletions: oldContent.split('\n').length };
-
-  const oldLines = oldContent.split('\n');
-  const newLines = newContent.split('\n');
-
-  const oldSet = new Set(oldLines);
-  const newSet = new Set(newLines);
+export function computeLineDiffStats(
+  oldContent: string = '',
+  newContent: string = ''
+): DiffStats {
+  if (oldContent === newContent) {
+    return { additions: 0, deletions: 0 };
+  }
 
   let additions = 0;
   let deletions = 0;
 
-  for (const line of newLines) {
-    if (!oldSet.has(line)) additions++;
-  }
-
-  for (const line of oldLines) {
-    if (!newSet.has(line)) deletions++;
+  for (const change of diffLines(oldContent, newContent)) {
+    if (change.added) {
+      additions += change.count ?? 0;
+    } else if (change.removed) {
+      deletions += change.count ?? 0;
+    }
   }
 
   return { additions, deletions };
